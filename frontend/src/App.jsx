@@ -25,6 +25,113 @@ const formatCrypto = (value) =>
     maximumFractionDigits: 10,
   })
 
+const formatPercent = (value) => {
+  const number = Number(value ?? 0)
+  const sign = number > 0 ? '+' : ''
+  return `${sign}${number.toFixed(2)}%`
+}
+
+const chartColors = ['#2563eb', '#16a34a', '#f59e0b', '#dc2626', '#7c3aed', '#0891b2']
+
+function buildPortfolioSummary(portfolio, prices) {
+  if (!portfolio) {
+    return {
+      allocations: [],
+      holdingsValue: 0,
+      investedCost: 0,
+      profitLoss: 0,
+      profitLossPercent: 0,
+      totalValue: 0,
+    }
+  }
+
+  const priceMap = new Map(prices.map((price) => [price.symbol, Number(price.price)]))
+  const cryptoAllocations = portfolio.holdings.map((holding, index) => {
+    const quantity = Number(holding.quantity)
+    const price = priceMap.get(holding.symbol) ?? 0
+    return {
+      color: chartColors[index % chartColors.length],
+      label: holding.symbol,
+      quantity,
+      value: quantity * price,
+    }
+  })
+
+  const holdingsValue = cryptoAllocations.reduce((total, item) => total + item.value, 0)
+  const totalValue = Number(portfolio.fiatBalance ?? 0) + holdingsValue
+  const cashAllocation = {
+    color: '#64748b',
+    label: 'Cash',
+    quantity: null,
+    value: Number(portfolio.fiatBalance ?? 0),
+  }
+  const allocations = [cashAllocation, ...cryptoAllocations]
+    .filter((item) => item.value > 0)
+    .map((item) => ({
+      ...item,
+      percent: totalValue > 0 ? (item.value / totalValue) * 100 : 0,
+    }))
+
+  const lots = new Map()
+  const orderedTransactions = [...(portfolio.recentTransactions ?? [])].reverse()
+  orderedTransactions.forEach((transaction) => {
+    const symbol = transaction.symbol
+    const current = lots.get(symbol) ?? { cost: 0, quantity: 0 }
+    const quantity = Number(transaction.quantity)
+    const totalAmount = Number(transaction.totalAmount)
+
+    if (transaction.type === 'BUY') {
+      lots.set(symbol, {
+        cost: current.cost + totalAmount,
+        quantity: current.quantity + quantity,
+      })
+      return
+    }
+
+    if (current.quantity <= 0) {
+      return
+    }
+
+    const soldRatio = Math.min(quantity / current.quantity, 1)
+    lots.set(symbol, {
+      cost: current.cost * (1 - soldRatio),
+      quantity: Math.max(current.quantity - quantity, 0),
+    })
+  })
+
+  const investedCost = portfolio.holdings.reduce((total, holding) => {
+    const lot = lots.get(holding.symbol)
+    return total + (lot?.cost ?? 0)
+  }, 0)
+  const profitLoss = holdingsValue - investedCost
+  const profitLossPercent = investedCost > 0 ? (profitLoss / investedCost) * 100 : 0
+
+  return {
+    allocations,
+    holdingsValue,
+    investedCost,
+    profitLoss,
+    profitLossPercent,
+    totalValue,
+  }
+}
+
+function buildPieGradient(allocations) {
+  if (allocations.length === 0) {
+    return '#e5e7eb'
+  }
+
+  let cursor = 0
+  const slices = allocations.map((allocation) => {
+    const start = cursor
+    const end = cursor + allocation.percent
+    cursor = end
+    return `${allocation.color} ${start}% ${end}%`
+  })
+
+  return `conic-gradient(${slices.join(', ')})`
+}
+
 function App() {
   const [authMode, setAuthMode] = useState('login')
   const [authForm, setAuthForm] = useState(emptyAuth)
@@ -146,6 +253,10 @@ function App() {
   }
 
   function openTrade(asset, type) {
+    if (!session) {
+      setError('Login to trade this asset.')
+      return
+    }
     setSelectedAsset(asset)
     setTradeType(type)
     setQuantity('')
@@ -255,7 +366,7 @@ function App() {
               {loading.portfolio && <span className="status">Loading</span>}
             </div>
             {session ? (
-              <Portfolio portfolio={portfolio} />
+              <Portfolio portfolio={portfolio} prices={prices} />
             ) : (
               <div className="empty-state">Login to see balance, holdings, and recent orders.</div>
             )}
@@ -275,27 +386,28 @@ function App() {
             <div className="market-grid">
               {prices.map((asset) => {
                 const heldQuantity = holdingsBySymbol.get(asset.symbol) ?? 0
+                const dailyChange = Number(asset.changePercent ?? 0)
+                const trendClass = dailyChange >= 0 ? 'up' : 'down'
                 return (
-                  <article className="asset-row" key={asset.symbol}>
-                    <div>
-                      <span className="asset-symbol">{asset.symbol}</span>
-                      <span className="asset-pair">{asset.pair}</span>
+                  <button
+                    className={`asset-card ${trendClass}`}
+                    key={asset.symbol}
+                    onClick={() => openTrade(asset, 'BUY')}
+                    type="button"
+                  >
+                    <div className="asset-card-top">
+                      <div>
+                        <span className="asset-symbol">{asset.symbol}</span>
+                        <span className="asset-pair">{asset.pair}</span>
+                      </div>
+                      <span className={`daily-change ${trendClass}`}>{formatPercent(dailyChange)}</span>
                     </div>
                     <strong>{formatMoney(asset.price)}</strong>
-                    <span className="held">Held: {formatCrypto(heldQuantity)}</span>
-                    <div className="row-actions">
-                      <button disabled={!session} type="button" onClick={() => openTrade(asset, 'BUY')}>
-                        Buy
-                      </button>
-                      <button
-                        disabled={!session || heldQuantity <= 0}
-                        type="button"
-                        onClick={() => openTrade(asset, 'SELL')}
-                      >
-                        Sell
-                      </button>
+                    <div className="asset-card-meta">
+                      <span>24h</span>
+                      <span>Held: {formatCrypto(heldQuantity)}</span>
                     </div>
-                  </article>
+                  </button>
                 )
               })}
             </div>
@@ -367,16 +479,41 @@ function App() {
   )
 }
 
-function Portfolio({ portfolio }) {
+function Portfolio({ portfolio, prices }) {
   if (!portfolio) {
     return <div className="empty-state">Portfolio data is loading.</div>
   }
+
+  const summary = buildPortfolioSummary(portfolio, prices)
+  const pieGradient = buildPieGradient(summary.allocations)
+  const profitClass = summary.profitLoss >= 0 ? 'positive' : 'negative'
 
   return (
     <div className="portfolio-block">
       <div className="balance-box">
         <span className="label">Cash balance</span>
         <strong>{formatMoney(portfolio.fiatBalance)}</strong>
+      </div>
+      <div className="portfolio-chart-block">
+        <div className="donut-chart" style={{ background: pieGradient }}>
+          <div className="donut-hole">
+            <span>Total</span>
+            <strong>{formatMoney(summary.totalValue)}</strong>
+          </div>
+        </div>
+        <div className="allocation-list">
+          {summary.allocations.length === 0 ? (
+            <div className="empty-state">No portfolio value yet.</div>
+          ) : (
+            summary.allocations.map((allocation) => (
+              <div className="allocation-row" key={allocation.label}>
+                <span className="swatch" style={{ backgroundColor: allocation.color }}></span>
+                <span>{allocation.label}</span>
+                <strong>{allocation.percent.toFixed(1)}%</strong>
+              </div>
+            ))
+          )}
+        </div>
       </div>
       <div className="holdings-list">
         {portfolio.holdings.length === 0 ? (
@@ -389,6 +526,21 @@ function Portfolio({ portfolio }) {
             </div>
           ))
         )}
+      </div>
+      <div className="profit-card">
+        <div>
+          <span className="label">Crypto value</span>
+          <strong>{formatMoney(summary.holdingsValue)}</strong>
+        </div>
+        <div>
+          <span className="label">Cost basis</span>
+          <strong>{formatMoney(summary.investedCost)}</strong>
+        </div>
+        <div className={profitClass}>
+          <span className="label">Profit / Loss</span>
+          <strong>{formatMoney(summary.profitLoss)}</strong>
+          <small>{summary.profitLossPercent.toFixed(2)}%</small>
+        </div>
       </div>
     </div>
   )

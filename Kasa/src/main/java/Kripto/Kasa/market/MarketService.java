@@ -19,6 +19,7 @@ import java.util.Set;
 @Service
 public class MarketService {
     private static final String PRICE_PREFIX = "price:";
+    private static final String CHANGE_PREFIX = "price-change-percent:";
     private static final String UPDATED_AT_PREFIX = "price-updated-at:";
 
     private final MarketDataProvider marketDataProvider;
@@ -77,6 +78,7 @@ public class MarketService {
         List<MarketPrice> latestPrices = marketDataProvider.fetchLatestPrices();
         for (MarketPrice price : latestPrices) {
             redisTemplate.opsForValue().set(PRICE_PREFIX + price.symbol(), price.price().toPlainString());
+            redisTemplate.opsForValue().set(CHANGE_PREFIX + price.symbol(), price.changePercent().toPlainString());
             redisTemplate.opsForValue().set(UPDATED_AT_PREFIX + price.symbol(), price.updatedAt().toString());
             priceSnapshotRepository.save(new PriceSnapshot(price));
         }
@@ -105,9 +107,16 @@ public class MarketService {
 
     private MarketPrice toCachedPrice(String symbol) {
         String price = redisTemplate.opsForValue().get(PRICE_PREFIX + symbol);
+        String changePercent = redisTemplate.opsForValue().get(CHANGE_PREFIX + symbol);
         String updatedAt = redisTemplate.opsForValue().get(UPDATED_AT_PREFIX + symbol);
         Instant instant = updatedAt == null ? Instant.now() : Instant.parse(updatedAt);
-        return new MarketPrice(symbol, symbol + "USDT", new BigDecimal(price), instant);
+        return new MarketPrice(
+                symbol,
+                symbol + "USDT",
+                new BigDecimal(price),
+                new BigDecimal(changePercent == null ? "0" : changePercent),
+                instant
+        );
     }
 
     private String normalizeSymbol(String symbol) {

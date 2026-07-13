@@ -7,6 +7,7 @@ public record MarketPrice(
         String symbol,
         String pair,
         BigDecimal price,
+        BigDecimal changePercent,
         Instant updatedAt
 ) {
 }
