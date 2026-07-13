@@ -2,7 +2,6 @@ package Kripto.Kasa.market;
 
 import Kripto.Kasa.common.BusinessException;
 import org.springframework.http.HttpStatus;
-import org.springframework.stereotype.Component;
 import org.springframework.web.reactive.function.client.WebClient;
 
 import java.math.BigDecimal;
@@ -12,7 +11,6 @@ import java.util.Objects;
 import java.util.List;
 import java.util.Locale;
 
-@Component
 public class BinanceMarketDataProvider implements MarketDataProvider {
     private final WebClient marketWebClient;
     private final MarketProperties properties;
