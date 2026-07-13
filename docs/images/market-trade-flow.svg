@@ -1,0 +1,43 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="1000" height="520" viewBox="0 0 1000 520" role="img" aria-labelledby="title desc">
+  <title id="title">Market and Trading Flow</title>
+  <desc id="desc">Flow from market provider to Redis and trading transaction updates.</desc>
+  <defs>
+    <style>
+      .bg{fill:#f8fafc}.box{fill:#fff;stroke:#cbd5e1;stroke-width:2}.title{font:700 22px Arial;fill:#0f172a}.text{font:500 15px Arial;fill:#334155}.small{font:500 13px Arial;fill:#64748b}.arrow{stroke:#7c3aed;stroke-width:3;fill:none;marker-end:url(#arrow)}
+    </style>
+    <marker id="arrow" markerWidth="10" markerHeight="10" refX="8" refY="3" orient="auto" markerUnits="strokeWidth">
+      <path d="M0,0 L0,6 L9,3 z" fill="#7c3aed"/>
+    </marker>
+  </defs>
+  <rect class="bg" width="1000" height="520" rx="18"/>
+  <text class="title" x="40" y="54">Market Refresh and Trade Execution</text>
+  <rect class="box" x="70" y="100" width="210" height="100" rx="12"/>
+  <text class="title" x="112" y="140">CoinGecko</text>
+  <text class="text" x="112" y="170">prices + 24h change</text>
+  <rect class="box" x="380" y="90" width="230" height="120" rx="12"/>
+  <text class="title" x="420" y="130">MarketService</text>
+  <text class="text" x="420" y="160">scheduled refresh</text>
+  <text class="text" x="420" y="186">every 15 seconds</text>
+  <rect class="box" x="710" y="75" width="210" height="115" rx="12"/>
+  <text class="title" x="780" y="116">Redis</text>
+  <text class="text" x="745" y="146">price:BTC</text>
+  <text class="text" x="745" y="170">change:BTC</text>
+  <rect class="box" x="710" y="245" width="210" height="110" rx="12"/>
+  <text class="title" x="748" y="286">PostgreSQL</text>
+  <text class="text" x="748" y="316">price snapshots</text>
+  <rect class="box" x="70" y="310" width="210" height="110" rx="12"/>
+  <text class="title" x="122" y="350">Frontend</text>
+  <text class="text" x="108" y="380">buy / sell modal</text>
+  <rect class="box" x="380" y="300" width="230" height="140" rx="12"/>
+  <text class="title" x="420" y="340">TradingService</text>
+  <text class="text" x="420" y="370">validate balance</text>
+  <text class="text" x="420" y="396">update holdings</text>
+  <text class="text" x="420" y="422">write transaction</text>
+  <path class="arrow" d="M280 150 H370"/>
+  <path class="arrow" d="M610 130 H700"/>
+  <path class="arrow" d="M610 175 C675 190 675 265 700 295"/>
+  <path class="arrow" d="M280 365 H370"/>
+  <path class="arrow" d="M610 365 C660 365 660 310 700 305"/>
+  <path class="arrow" d="M495 300 C520 250 690 205 760 188"/>
+  <text class="small" x="520" y="270">read latest price</text>
+</svg>

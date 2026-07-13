@@ -1,0 +1,35 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="1000" height="460" viewBox="0 0 1000 460" role="img" aria-labelledby="title desc">
+  <title id="title">Production Deployment</title>
+  <desc id="desc">Docker Compose deployment on Google Cloud VM.</desc>
+  <defs>
+    <style>
+      .bg{fill:#f8fafc}.vm{fill:#eef2ff;stroke:#6366f1;stroke-width:2}.box{fill:#fff;stroke:#cbd5e1;stroke-width:2}.title{font:700 22px Arial;fill:#0f172a}.text{font:500 15px Arial;fill:#334155}.small{font:500 13px Arial;fill:#64748b}.arrow{stroke:#2563eb;stroke-width:3;fill:none;marker-end:url(#arrow)}
+    </style>
+    <marker id="arrow" markerWidth="10" markerHeight="10" refX="8" refY="3" orient="auto" markerUnits="strokeWidth">
+      <path d="M0,0 L0,6 L9,3 z" fill="#2563eb"/>
+    </marker>
+  </defs>
+  <rect class="bg" width="1000" height="460" rx="18"/>
+  <text class="title" x="40" y="54">Google Cloud VM Deployment</text>
+  <rect class="box" x="55" y="170" width="175" height="95" rx="12"/>
+  <text class="title" x="105" y="208">Browser</text>
+  <text class="text" x="82" y="238">34.10.14.229</text>
+  <rect class="vm" x="305" y="85" width="620" height="305" rx="20"/>
+  <text class="title" x="335" y="125">Docker Compose on VM</text>
+  <rect class="box" x="350" y="160" width="185" height="95" rx="12"/>
+  <text class="title" x="395" y="198">Nginx</text>
+  <text class="text" x="382" y="228">frontend :80</text>
+  <rect class="box" x="650" y="160" width="185" height="95" rx="12"/>
+  <text class="title" x="690" y="198">Backend</text>
+  <text class="text" x="680" y="228">Spring :8080</text>
+  <rect class="box" x="500" y="290" width="150" height="70" rx="12"/>
+  <text class="title" x="536" y="333">Redis</text>
+  <rect class="box" x="700" y="290" width="160" height="70" rx="12"/>
+  <text class="title" x="725" y="333">PostgreSQL</text>
+  <path class="arrow" d="M230 218 H340"/>
+  <text class="small" x="245" y="200">HTTP :80</text>
+  <path class="arrow" d="M535 205 H640"/>
+  <text class="small" x="560" y="188">/api proxy</text>
+  <path class="arrow" d="M715 255 L620 285"/>
+  <path class="arrow" d="M760 255 L780 285"/>
+</svg>

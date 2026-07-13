@@ -1,0 +1,25 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="1000" height="430" viewBox="0 0 1000 430" role="img" aria-labelledby="title desc">
+  <title id="title">Redis and PostgreSQL Responsibilities</title>
+  <desc id="desc">Comparison of volatile Redis data and permanent PostgreSQL data.</desc>
+  <defs>
+    <style>
+      .bg{fill:#f8fafc}.redis{fill:#fff7ed;stroke:#fb923c;stroke-width:2}.pg{fill:#eff6ff;stroke:#3b82f6;stroke-width:2}.title{font:700 22px Arial;fill:#0f172a}.head{font:700 24px Arial;fill:#111827}.text{font:500 16px Arial;fill:#334155}.small{font:500 13px Arial;fill:#64748b}
+    </style>
+  </defs>
+  <rect class="bg" width="1000" height="430" rx="18"/>
+  <text class="title" x="40" y="54">Storage Model</text>
+  <rect class="redis" x="70" y="100" width="390" height="260" rx="16"/>
+  <text class="head" x="110" y="145">Redis</text>
+  <text class="small" x="110" y="172">Fast, temporary, cache layer</text>
+  <text class="text" x="110" y="215">- session tokens</text>
+  <text class="text" x="110" y="247">- latest prices</text>
+  <text class="text" x="110" y="279">- 24h market changes</text>
+  <text class="text" x="110" y="311">- overwritten frequently</text>
+  <rect class="pg" x="540" y="100" width="390" height="260" rx="16"/>
+  <text class="head" x="580" y="145">PostgreSQL</text>
+  <text class="small" x="580" y="172">Permanent source of truth</text>
+  <text class="text" x="580" y="215">- users and password hashes</text>
+  <text class="text" x="580" y="247">- wallet balances</text>
+  <text class="text" x="580" y="279">- holdings and transactions</text>
+  <text class="text" x="580" y="311">- historical price snapshots</text>
+</svg>

@@ -1,0 +1,45 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="1000" height="560" viewBox="0 0 1000 560" role="img" aria-labelledby="title desc">
+  <title id="title">CryptoPal Architecture</title>
+  <desc id="desc">High level architecture showing frontend, backend, Redis, PostgreSQL, and market API.</desc>
+  <defs>
+    <style>
+      .bg{fill:#f8fafc}.box{fill:#fff;stroke:#cbd5e1;stroke-width:2}.title{font:700 22px Arial;fill:#0f172a}.text{font:500 15px Arial;fill:#334155}.small{font:500 13px Arial;fill:#64748b}.arrow{stroke:#2563eb;stroke-width:3;fill:none;marker-end:url(#arrow)}
+    </style>
+    <marker id="arrow" markerWidth="10" markerHeight="10" refX="8" refY="3" orient="auto" markerUnits="strokeWidth">
+      <path d="M0,0 L0,6 L9,3 z" fill="#2563eb"/>
+    </marker>
+  </defs>
+  <rect class="bg" x="0" y="0" width="1000" height="560" rx="18"/>
+  <text class="title" x="40" y="54">CryptoPal System Architecture</text>
+  <rect class="box" x="55" y="105" width="210" height="130" rx="12"/>
+  <text class="title" x="85" y="145">React SPA</text>
+  <text class="text" x="85" y="175">Login / Register</text>
+  <text class="text" x="85" y="199">Market cards</text>
+  <text class="text" x="85" y="223">Portfolio + trades</text>
+  <rect class="box" x="395" y="90" width="250" height="160" rx="12"/>
+  <text class="title" x="425" y="130">Spring Boot Core</text>
+  <text class="text" x="425" y="160">Auth module</text>
+  <text class="text" x="425" y="184">Market module</text>
+  <text class="text" x="425" y="208">Trading module</text>
+  <text class="text" x="425" y="232">Portfolio module</text>
+  <rect class="box" x="735" y="70" width="200" height="110" rx="12"/>
+  <text class="title" x="770" y="112">CoinGecko</text>
+  <text class="text" x="770" y="142">Live prices</text>
+  <text class="text" x="770" y="166">24h change</text>
+  <rect class="box" x="255" y="350" width="205" height="125" rx="12"/>
+  <text class="title" x="295" y="392">Redis</text>
+  <text class="text" x="295" y="422">Sessions</text>
+  <text class="text" x="295" y="446">Latest prices</text>
+  <rect class="box" x="565" y="350" width="245" height="125" rx="12"/>
+  <text class="title" x="605" y="392">PostgreSQL</text>
+  <text class="text" x="605" y="422">Users / wallets</text>
+  <text class="text" x="605" y="446">Holdings / trades</text>
+  <path class="arrow" d="M265 170 H385"/>
+  <text class="small" x="292" y="155">HTTP JSON</text>
+  <path class="arrow" d="M645 145 H725"/>
+  <text class="small" x="660" y="130">market API</text>
+  <path class="arrow" d="M455 250 L385 345"/>
+  <text class="small" x="335" y="307">cache</text>
+  <path class="arrow" d="M575 250 L655 345"/>
+  <text class="small" x="625" y="307">persist</text>
+</svg>
