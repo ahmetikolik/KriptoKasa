@@ -9,8 +9,13 @@ import org.springframework.web.reactive.function.client.WebClient;
 public class WebClientConfig {
 
     @Bean
-    public WebClient marketWebClient(MarketProperties properties) {
-        return WebClient.builder()
+    public WebClient.Builder webClientBuilder() {
+        return WebClient.builder();
+    }
+
+    @Bean
+    public WebClient marketWebClient(MarketProperties properties, WebClient.Builder webClientBuilder) {
+        return webClientBuilder
                 .baseUrl(properties.getBaseUrl())
                 .build();
     }
