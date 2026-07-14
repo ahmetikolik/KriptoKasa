@@ -1,8 +1,8 @@
 # CryptoPal
 
-CryptoPal is a full-stack cryptocurrency trading dashboard built with a Spring Boot backend, React single-page frontend, PostgreSQL persistence, Redis caching, live market data, and Docker-based deployment.
+CryptoPal is a full-stack cryptocurrency trading dashboard built with a Spring Boot backend, React single-page frontend, PostgreSQL persistence, Redis caching, live market data, Gemini AI insights, and Docker-based deployment.
 
-The application lets users register, log in, view live crypto prices, inspect their portfolio, and execute buy/sell orders. AI/Gemini integration is intentionally left as a later module.
+The application lets users register, log in, view live crypto prices, inspect their portfolio, execute buy/sell orders, and ask an AI assistant questions about their portfolio context.
 
 ![CryptoPal Architecture](docs/images/architecture.svg)
 
@@ -27,6 +27,7 @@ KriptoKasa/
 | Cache | Redis |
 | Migration | Flyway |
 | Market Data | CoinGecko public API |
+| AI | Google Gemini API |
 | Deployment | Docker Compose |
 
 ## Core Features
@@ -40,6 +41,7 @@ KriptoKasa/
 - Buy/sell trading modal
 - Transactional trading logic
 - Portfolio donut chart and profit/loss summary
+- Gemini-powered AI portfolio insights
 - Production deployment behind Nginx
 
 ## How The System Works
@@ -158,6 +160,7 @@ If one step fails, the full transaction rolls back.
 | GET | `/api/market/prices` | Get latest cached market prices |
 | GET | `/api/portfolio` | Get wallet, holdings, and recent orders |
 | POST | `/api/trades` | Execute buy/sell order |
+| POST | `/api/ai/query` | Ask Gemini using the authenticated portfolio context |
 
 ## Local Development
 
@@ -196,6 +199,14 @@ The production setup runs all services with Docker Compose.
 cp .env.example .env
 nano .env
 docker compose -f docker-compose.prod.yml up -d --build
+```
+
+Required production environment values:
+
+```text
+POSTGRES_PASSWORD=your_strong_password_here
+GEMINI_API_KEY=your_gemini_api_key_here
+GEMINI_MODEL=gemini-2.0-flash
 ```
 
 Check containers:
@@ -249,9 +260,9 @@ Completed:
 - Trading operations
 - React SPA frontend
 - Docker production deployment
+- Google Gemini AI insights module
 
 Pending:
 
-- Google Gemini AI insights module
 - Swagger/OpenAPI documentation
 - More advanced realized/unrealized PnL calculations

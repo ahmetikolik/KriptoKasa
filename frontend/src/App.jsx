@@ -4,6 +4,7 @@ import {
   getPortfolio,
   getPrices,
   login,
+  queryAi,
   register,
 } from './api/client'
 import './App.css'
@@ -144,7 +145,10 @@ function App() {
   const [selectedAsset, setSelectedAsset] = useState(null)
   const [tradeType, setTradeType] = useState('BUY')
   const [quantity, setQuantity] = useState('')
+  const [aiQuestion, setAiQuestion] = useState('')
+  const [aiAnswer, setAiAnswer] = useState('')
   const [loading, setLoading] = useState({
+    ai: false,
     auth: false,
     prices: false,
     portfolio: false,
@@ -249,6 +253,26 @@ function App() {
       setError(requestError.message)
     } finally {
       setLoading((current) => ({ ...current, trade: false }))
+    }
+  }
+
+  async function handleAiSubmit(event) {
+    event.preventDefault()
+    if (!token) {
+      return
+    }
+
+    setError('')
+    setMessage('')
+    setLoading((current) => ({ ...current, ai: true }))
+
+    try {
+      const response = await queryAi(token, { question: aiQuestion })
+      setAiAnswer(response.answer)
+    } catch (requestError) {
+      setError(requestError.message)
+    } finally {
+      setLoading((current) => ({ ...current, ai: false }))
     }
   }
 
@@ -418,6 +442,31 @@ function App() {
               <h2>Recent Orders</h2>
             </div>
             <RecentOrders transactions={portfolio?.recentTransactions ?? []} />
+          </section>
+
+          <section className="panel ai-panel">
+            <div className="panel-header">
+              <h2>AI Insights</h2>
+              {loading.ai && <span className="status">Thinking</span>}
+            </div>
+            {session ? (
+              <form className="ai-form" onSubmit={handleAiSubmit}>
+                <textarea
+                  maxLength={1000}
+                  onChange={(event) => setAiQuestion(event.target.value)}
+                  placeholder="Portföyümde risk var mı?"
+                  required
+                  rows={3}
+                  value={aiQuestion}
+                />
+                <button disabled={loading.ai || !aiQuestion.trim()} type="submit">
+                  {loading.ai ? 'Asking' : 'Ask AI'}
+                </button>
+                {aiAnswer && <div className="ai-answer">{aiAnswer}</div>}
+              </form>
+            ) : (
+              <div className="empty-state">Login to ask AI about your portfolio.</div>
+            )}
           </section>
         </section>
       </section>

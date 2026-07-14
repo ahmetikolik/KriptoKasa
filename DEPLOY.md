@@ -65,6 +65,8 @@ Set a real password:
 
 ```text
 POSTGRES_PASSWORD=your_strong_password_here
+GEMINI_API_KEY=your_gemini_api_key_here
+GEMINI_MODEL=gemini-2.0-flash
 ```
 
 ## 5. Start The App

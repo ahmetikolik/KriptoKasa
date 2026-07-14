@@ -47,7 +47,8 @@ p {
 }
 
 button,
-input {
+input,
+textarea {
   font: inherit;
 }
 
@@ -74,6 +75,18 @@ input {
   color: #111827;
   min-height: 40px;
   padding: 8px 10px;
+  width: 100%;
+}
+
+textarea {
+  background: #ffffff;
+  border: 1px solid #d1d5db;
+  border-radius: 6px;
+  color: #111827;
+  line-height: 1.5;
+  min-height: 94px;
+  padding: 10px;
+  resize: vertical;
   width: 100%;
 }
 
@@ -364,6 +377,25 @@ label {
 .orders-table {
   display: grid;
   gap: 8px;
+}
+
+.ai-form {
+  display: grid;
+  gap: 12px;
+}
+
+.ai-form button {
+  justify-self: start;
+}
+
+.ai-answer {
+  background: #f8fafc;
+  border: 1px solid #d9e0ea;
+  border-radius: 6px;
+  color: #1f2937;
+  line-height: 1.6;
+  padding: 14px;
+  white-space: pre-wrap;
 }
 
 .orders-head,

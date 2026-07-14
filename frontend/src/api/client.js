@@ -54,3 +54,13 @@ export function executeTrade(token, payload) {
     body: JSON.stringify(payload),
   })
 }
+
+export function queryAi(token, payload) {
+  return request('/api/ai/query', {
+    method: 'POST',
+    headers: {
+      Authorization: `Bearer ${token}`,
+    },
+    body: JSON.stringify(payload),
+  })
+}
