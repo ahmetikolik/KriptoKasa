@@ -7,7 +7,7 @@ import org.springframework.stereotype.Component;
 @ConfigurationProperties(prefix = "cryptopal.ai")
 public class AiProperties {
     private String baseUrl = "https://generativelanguage.googleapis.com";
-    private String model = "gemini-2.0-flash";
+    private String model = "gemini-flash-lite-latest";
     private String apiKey = "";
 
     public String getBaseUrl() {

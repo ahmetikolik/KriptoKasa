@@ -206,7 +206,7 @@ Required production environment values:
 ```text
 POSTGRES_PASSWORD=your_strong_password_here
 GEMINI_API_KEY=your_gemini_api_key_here
-GEMINI_MODEL=gemini-2.0-flash
+GEMINI_MODEL=gemini-flash-lite-latest
 ```
 
 Check containers:
