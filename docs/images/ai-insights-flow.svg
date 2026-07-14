@@ -1,0 +1,99 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="1100" height="650" viewBox="0 0 1100 650" role="img" aria-labelledby="title desc">
+  <title id="title">CryptoPal AI Insights Architecture</title>
+  <desc id="desc">Architecture diagram showing how the authenticated AI insights request collects portfolio context and calls Gemini.</desc>
+  <defs>
+    <style>
+      .bg{fill:#f8fafc}
+      .band{fill:#eef6ff;stroke:#bfdbfe;stroke-width:2}
+      .box{fill:#fff;stroke:#cbd5e1;stroke-width:2}
+      .accent{fill:#eff6ff;stroke:#2563eb;stroke-width:2}
+      .store{fill:#f0fdf4;stroke:#86efac;stroke-width:2}
+      .external{fill:#fff7ed;stroke:#fdba74;stroke-width:2}
+      .title{font:700 24px Arial;fill:#0f172a}
+      .label{font:700 17px Arial;fill:#0f172a}
+      .text{font:500 14px Arial;fill:#334155}
+      .small{font:500 12px Arial;fill:#64748b}
+      .arrow{stroke:#2563eb;stroke-width:3;fill:none;marker-end:url(#arrow)}
+      .mutedArrow{stroke:#64748b;stroke-width:2.5;fill:none;marker-end:url(#mutedArrow)}
+    </style>
+    <marker id="arrow" markerWidth="10" markerHeight="10" refX="8" refY="3" orient="auto" markerUnits="strokeWidth">
+      <path d="M0,0 L0,6 L9,3 z" fill="#2563eb"/>
+    </marker>
+    <marker id="mutedArrow" markerWidth="10" markerHeight="10" refX="8" refY="3" orient="auto" markerUnits="strokeWidth">
+      <path d="M0,0 L0,6 L9,3 z" fill="#64748b"/>
+    </marker>
+  </defs>
+
+  <rect class="bg" x="0" y="0" width="1100" height="650" rx="18"/>
+  <text class="title" x="42" y="58">Gemini AI Insights Flow</text>
+  <text class="text" x="42" y="84">The AI never writes financial data. It reads authenticated context, sends a prompt to Gemini, and returns a plain answer.</text>
+
+  <rect class="band" x="35" y="112" width="1030" height="178" rx="16"/>
+  <text class="label" x="58" y="145">1. User Request</text>
+
+  <rect class="box" x="70" y="170" width="210" height="82" rx="10"/>
+  <text class="label" x="96" y="204">React SPA</text>
+  <text class="text" x="96" y="228">AI Insights panel</text>
+
+  <rect class="accent" x="420" y="160" width="250" height="104" rx="10"/>
+  <text class="label" x="448" y="195">/api/ai/query</text>
+  <text class="text" x="448" y="219">Authorization: Bearer token</text>
+  <text class="text" x="448" y="241">question payload</text>
+
+  <rect class="box" x="805" y="170" width="210" height="82" rx="10"/>
+  <text class="label" x="835" y="204">AiController</text>
+  <text class="text" x="835" y="228">validates request</text>
+
+  <path class="arrow" d="M280 211 H410"/>
+  <text class="small" x="313" y="196">POST JSON</text>
+  <path class="arrow" d="M670 211 H795"/>
+  <text class="small" x="706" y="196">route</text>
+
+  <rect class="band" x="35" y="324" width="1030" height="250" rx="16"/>
+  <text class="label" x="58" y="357">2. Backend Context Builder</text>
+
+  <rect class="accent" x="70" y="395" width="210" height="112" rx="10"/>
+  <text class="label" x="102" y="429">AiService</text>
+  <text class="text" x="102" y="453">checks Gemini config</text>
+  <text class="text" x="102" y="477">builds Turkish prompt</text>
+
+  <rect class="store" x="360" y="350" width="185" height="88" rx="10"/>
+  <text class="label" x="398" y="384">Redis</text>
+  <text class="text" x="398" y="408">session token</text>
+
+  <rect class="store" x="360" y="470" width="185" height="88" rx="10"/>
+  <text class="label" x="390" y="504">PostgreSQL</text>
+  <text class="text" x="390" y="528">wallet, holdings</text>
+  <text class="text" x="390" y="548">recent trades</text>
+
+  <rect class="store" x="620" y="350" width="185" height="88" rx="10"/>
+  <text class="label" x="660" y="384">Redis</text>
+  <text class="text" x="660" y="408">latest prices</text>
+
+  <rect class="external" x="620" y="470" width="185" height="88" rx="10"/>
+  <text class="label" x="655" y="504">CoinGecko</text>
+  <text class="text" x="655" y="528">refresh source</text>
+
+  <rect class="external" x="870" y="410" width="155" height="98" rx="10"/>
+  <text class="label" x="908" y="444">Gemini</text>
+  <text class="text" x="908" y="468">generateContent</text>
+  <text class="text" x="908" y="490">AI answer</text>
+
+  <path class="mutedArrow" d="M175 395 V310 H910 V260"/>
+  <text class="small" x="195" y="319">authenticated user context</text>
+  <path class="mutedArrow" d="M280 445 H350"/>
+  <text class="small" x="294" y="431">token lookup</text>
+  <path class="mutedArrow" d="M280 481 H350 V514"/>
+  <text class="small" x="292" y="503">portfolio read</text>
+  <path class="mutedArrow" d="M545 394 H610"/>
+  <text class="small" x="558" y="380">prices</text>
+  <path class="mutedArrow" d="M712 470 V448"/>
+  <text class="small" x="730" y="462">scheduled refresh</text>
+  <path class="arrow" d="M805 459 H860"/>
+  <text class="small" x="808" y="444">prompt</text>
+  <path class="arrow" d="M870 489 C700 620 360 612 175 508"/>
+  <text class="small" x="492" y="604">answer returns to AI panel</text>
+
+  <rect class="box" x="70" y="592" width="955" height="32" rx="8"/>
+  <text class="small" x="92" y="613">Safety boundary: Gemini receives a generated context prompt; PostgreSQL writes and trade execution remain inside Spring Boot services.</text>
+</svg>

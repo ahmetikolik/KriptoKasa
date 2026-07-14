@@ -151,6 +151,14 @@ Commit all together
 
 If one step fails, the full transaction rolls back.
 
+## Gemini AI Insights
+
+The AI panel is a protected workflow. The frontend sends the user's question with the session token, the backend resolves the user from Redis, reads portfolio context from PostgreSQL, adds the latest cached market prices, and sends one generated prompt to Gemini.
+
+![Gemini AI Insights Flow](docs/images/ai-insights-flow.svg)
+
+The Gemini call is read-only from the app's perspective. It can explain the current portfolio context, but it does not write balances, create orders, or bypass the trading service.
+
 ## API Endpoints
 
 | Method | Endpoint | Description |
