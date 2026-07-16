@@ -11,6 +11,7 @@ import org.springframework.transaction.annotation.Transactional;
 
 import java.math.BigDecimal;
 import java.time.Instant;
+import java.util.ArrayList;
 import java.util.Collections;
 import java.util.List;
 import java.util.Locale;
@@ -71,6 +72,27 @@ public class MarketService {
             throw new BusinessException(HttpStatus.BAD_REQUEST, "Unsupported or unavailable symbol: " + symbol);
         }
         return new BigDecimal(value);
+    }
+
+    public List<PriceHistoryPoint> getPriceHistory(String symbol) {
+        String normalizedSymbol = normalizeSymbol(symbol);
+        List<PriceSnapshot> snapshots = priceSnapshotRepository
+                .findTop50BySymbolOrderByCapturedAtDesc(normalizedSymbol);
+
+        if (snapshots.isEmpty()) {
+            refreshPricesSafely();
+            snapshots = priceSnapshotRepository.findTop50BySymbolOrderByCapturedAtDesc(normalizedSymbol);
+        }
+
+        List<PriceSnapshot> chronologicalSnapshots = new ArrayList<>(snapshots);
+        Collections.reverse(chronologicalSnapshots);
+        return chronologicalSnapshots.stream()
+                .map(snapshot -> new PriceHistoryPoint(
+                        snapshot.getSymbol(),
+                        snapshot.getPrice(),
+                        snapshot.getCapturedAt()
+                ))
+                .toList();
     }
 
     @Transactional

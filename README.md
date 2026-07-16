@@ -37,6 +37,7 @@ KriptoKasa/
 - Redis-backed session tokens
 - Random initial wallet balance on registration
 - Live crypto prices with 24h change
+- Clickable asset cards with price history chart
 - Portfolio holdings and recent orders
 - Buy/sell trading modal
 - Transactional trading logic
@@ -166,6 +167,7 @@ The Gemini call is read-only from the app's perspective. It can explain the curr
 | POST | `/api/auth/register` | Create user and wallet |
 | POST | `/api/auth/login` | Login and receive token |
 | GET | `/api/market/prices` | Get latest cached market prices |
+| GET | `/api/market/history/{symbol}` | Get recent price snapshots for one asset |
 | GET | `/api/portfolio` | Get wallet, holdings, and recent orders |
 | POST | `/api/trades` | Execute buy/sell order |
 | POST | `/api/ai/query` | Ask Gemini using the authenticated portfolio context |

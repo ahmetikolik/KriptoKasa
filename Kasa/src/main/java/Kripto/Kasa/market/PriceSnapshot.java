@@ -38,4 +38,16 @@ public class PriceSnapshot {
         this.price = marketPrice.price();
         this.capturedAt = marketPrice.updatedAt();
     }
+
+    public String getSymbol() {
+        return symbol;
+    }
+
+    public BigDecimal getPrice() {
+        return price;
+    }
+
+    public Instant getCapturedAt() {
+        return capturedAt;
+    }
 }

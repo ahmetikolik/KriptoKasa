@@ -1,7 +1,17 @@
 import { useCallback, useEffect, useMemo, useState } from 'react'
 import {
+  CartesianGrid,
+  Line,
+  LineChart,
+  ResponsiveContainer,
+  Tooltip,
+  XAxis,
+  YAxis,
+} from 'recharts'
+import {
   executeTrade,
   getPortfolio,
+  getPriceHistory,
   getPrices,
   login,
   queryAi,
@@ -141,7 +151,9 @@ function App() {
     return stored ? JSON.parse(stored) : null
   })
   const [prices, setPrices] = useState([])
+  const [priceHistory, setPriceHistory] = useState([])
   const [portfolio, setPortfolio] = useState(null)
+  const [selectedSymbol, setSelectedSymbol] = useState('')
   const [selectedAsset, setSelectedAsset] = useState(null)
   const [tradeType, setTradeType] = useState('BUY')
   const [quantity, setQuantity] = useState('')
@@ -150,6 +162,7 @@ function App() {
   const [loading, setLoading] = useState({
     ai: false,
     auth: false,
+    history: false,
     prices: false,
     portfolio: false,
     trade: false,
@@ -188,6 +201,23 @@ function App() {
     }
   }, [token])
 
+  const loadPriceHistory = useCallback(async (symbol) => {
+    if (!symbol) {
+      setPriceHistory([])
+      return
+    }
+
+    setLoading((current) => ({ ...current, history: true }))
+    try {
+      const data = await getPriceHistory(symbol)
+      setPriceHistory(data)
+    } catch (requestError) {
+      setError(requestError.message)
+    } finally {
+      setLoading((current) => ({ ...current, history: false }))
+    }
+  }, [])
+
   useEffect(() => {
     loadPrices()
     const intervalId = window.setInterval(loadPrices, 15000)
@@ -198,6 +228,12 @@ function App() {
     loadPortfolio()
   }, [loadPortfolio])
 
+  useEffect(() => {
+    if (!selectedSymbol && prices.length > 0) {
+      setSelectedSymbol(prices[0].symbol)
+    }
+  }, [prices, selectedSymbol])
+
   const holdingsBySymbol = useMemo(() => {
     const map = new Map()
     portfolio?.holdings?.forEach((holding) => {
@@ -205,6 +241,25 @@ function App() {
     })
     return map
   }, [portfolio])
+
+  const selectedChartAsset = useMemo(() => {
+    if (prices.length === 0) {
+      return null
+    }
+    return prices.find((asset) => asset.symbol === selectedSymbol) ?? prices[0]
+  }, [prices, selectedSymbol])
+
+  useEffect(() => {
+    const symbol = selectedChartAsset?.symbol
+    if (!symbol) {
+      setPriceHistory([])
+      return undefined
+    }
+
+    loadPriceHistory(symbol)
+    const intervalId = window.setInterval(() => loadPriceHistory(symbol), 15000)
+    return () => window.clearInterval(intervalId)
+  }, [loadPriceHistory, selectedChartAsset?.symbol])
 
   async function handleAuthSubmit(event) {
     event.preventDefault()
@@ -414,9 +469,11 @@ function App() {
                 const trendClass = dailyChange >= 0 ? 'up' : 'down'
                 return (
                   <button
-                    className={`asset-card ${trendClass}`}
+                    className={`asset-card ${trendClass} ${
+                      selectedChartAsset?.symbol === asset.symbol ? 'selected' : ''
+                    }`}
                     key={asset.symbol}
-                    onClick={() => openTrade(asset, 'BUY')}
+                    onClick={() => setSelectedSymbol(asset.symbol)}
                     type="button"
                   >
                     <div className="asset-card-top">
@@ -434,6 +491,43 @@ function App() {
                   </button>
                 )
               })}
+            </div>
+          </section>
+
+          <section className="panel chart-panel">
+            <div className="panel-header">
+              <div>
+                <h2>{selectedChartAsset ? `${selectedChartAsset.symbol} Chart` : 'Price Chart'}</h2>
+                {selectedChartAsset && (
+                  <p>
+                    {formatMoney(selectedChartAsset.price)} -{' '}
+                    {formatPercent(selectedChartAsset.changePercent)} 24h
+                  </p>
+                )}
+              </div>
+              {loading.history && <span className="status">Loading</span>}
+            </div>
+            <PriceChart history={priceHistory} />
+            <div className="chart-actions">
+              <button
+                disabled={!selectedChartAsset || !session}
+                onClick={() => openTrade(selectedChartAsset, 'BUY')}
+                type="button"
+              >
+                Buy
+              </button>
+              <button
+                className="ghost-button"
+                disabled={
+                  !selectedChartAsset ||
+                  !session ||
+                  Number(holdingsBySymbol.get(selectedChartAsset.symbol) ?? 0) <= 0
+                }
+                onClick={() => openTrade(selectedChartAsset, 'SELL')}
+                type="button"
+              >
+                Sell
+              </button>
             </div>
           </section>
 
@@ -525,6 +619,55 @@ function App() {
         </div>
       )}
     </main>
+  )
+}
+
+function PriceChart({ history }) {
+  const chartData = history.map((point) => ({
+    ...point,
+    price: Number(point.price),
+    time: new Date(point.capturedAt).toLocaleTimeString('en-US', {
+      hour: '2-digit',
+      minute: '2-digit',
+    }),
+  }))
+
+  if (chartData.length === 0) {
+    return <div className="empty-state">Price history will appear after market snapshots are collected.</div>
+  }
+
+  return (
+    <div className="price-chart">
+      <ResponsiveContainer height={260} width="100%">
+        <LineChart data={chartData} margin={{ bottom: 4, left: 4, right: 18, top: 8 }}>
+          <CartesianGrid stroke="#e5e7eb" strokeDasharray="4 4" />
+          <XAxis dataKey="time" minTickGap={24} stroke="#64748b" tick={{ fontSize: 12 }} />
+          <YAxis
+            domain={['auto', 'auto']}
+            stroke="#64748b"
+            tick={{ fontSize: 12 }}
+            tickFormatter={(value) =>
+              Number(value).toLocaleString('en-US', {
+                maximumFractionDigits: 2,
+              })
+            }
+            width={72}
+          />
+          <Tooltip
+            formatter={(value) => [formatMoney(value), 'Price']}
+            labelFormatter={(label) => `Time: ${label}`}
+          />
+          <Line
+            dataKey="price"
+            dot={false}
+            isAnimationActive={false}
+            stroke="#2563eb"
+            strokeWidth={3}
+            type="monotone"
+          />
+        </LineChart>
+      </ResponsiveContainer>
+    </div>
   )
 }
 

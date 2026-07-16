@@ -37,6 +37,10 @@ export function getPrices() {
   return request('/api/market/prices')
 }
 
+export function getPriceHistory(symbol) {
+  return request(`/api/market/history/${symbol}`)
+}
+
 export function getPortfolio(token) {
   return request('/api/portfolio', {
     headers: {
