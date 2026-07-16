@@ -104,6 +104,18 @@ label {
   color: #111827;
 }
 
+.refresh-button {
+  background: #ef4444;
+  border-color: #ef4444;
+  color: #ffffff;
+}
+
+.refresh-button:hover {
+  background: #dc2626;
+  border-color: #dc2626;
+  color: #ffffff;
+}
+
 .icon-button {
   min-width: 38px;
   padding: 8px;

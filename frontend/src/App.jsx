@@ -360,7 +360,7 @@ function App() {
           <span className="eyebrow">CryptoPal</span>
           <h1>Trading Console</h1>
         </div>
-        <button className="ghost-button" type="button" onClick={loadPrices}>
+        <button className="refresh-button" type="button" onClick={loadPrices}>
           {loading.prices ? 'Refreshing' : 'Refresh'}
         </button>
       </header>
