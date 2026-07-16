@@ -1,5 +1,27 @@
 import { useCallback, useEffect, useMemo, useState } from 'react'
 import {
+  Activity,
+  ArrowDownRight,
+  ArrowLeft,
+  ArrowRight,
+  ArrowUpRight,
+  BarChart3,
+  CheckCircle2,
+  ChevronRight,
+  Clock3,
+  Coins,
+  History,
+  LogIn,
+  LogOut,
+  MessageSquareText,
+  RefreshCw,
+  Search,
+  Send,
+  ShieldCheck,
+  WalletCards,
+  X,
+} from 'lucide-react'
+import {
   CartesianGrid,
   Line,
   LineChart,
@@ -19,35 +41,94 @@ import {
 } from './api/client'
 import './App.css'
 
-const emptyAuth = {
-  email: '',
-  password: '',
+const PAGE_SIZE = 8
+const emptyAuth = { email: '', password: '' }
+const chartColors = ['#7dfab2', '#60a5fa', '#f5c96a', '#c084fc', '#fb7185', '#22d3ee']
+const assistantSuggestions = [
+  'Portföyümdeki en büyük risk nedir?',
+  'Nakit oranımı değerlendir',
+  'Son işlemlerimi kısaca özetle',
+]
+
+const coinDirectory = {
+  BTC: { color: '#f7931a', name: 'Bitcoin' },
+  ETH: { color: '#627eea', name: 'Ethereum' },
+  USDT: { color: '#26a17b', name: 'Tether' },
+  BNB: { color: '#f3ba2f', name: 'BNB' },
+  SOL: { color: '#8b5cf6', name: 'Solana' },
+  XRP: { color: '#4f708d', name: 'XRP' },
+  USDC: { color: '#2775ca', name: 'USD Coin' },
+  ADA: { color: '#3468d4', name: 'Cardano' },
+  DOGE: { color: '#c2a633', name: 'Dogecoin' },
+  AVAX: { color: '#e84142', name: 'Avalanche' },
+  TRX: { color: '#ef4444', name: 'TRON' },
+  DOT: { color: '#e6007a', name: 'Polkadot' },
+  LINK: { color: '#2a5ada', name: 'Chainlink' },
+  MATIC: { color: '#8247e5', name: 'Polygon' },
+  LTC: { color: '#7c8ca5', name: 'Litecoin' },
+  BCH: { color: '#8dc351', name: 'Bitcoin Cash' },
+  UNI: { color: '#ff4d9d', name: 'Uniswap' },
+  ATOM: { color: '#5963a8', name: 'Cosmos' },
+  XLM: { color: '#64748b', name: 'Stellar' },
+  NEAR: { color: '#4ade80', name: 'NEAR Protocol' },
 }
 
-const formatMoney = (value) =>
-  Number(value ?? 0).toLocaleString('en-US', {
-    style: 'currency',
-    currency: 'USD',
-    maximumFractionDigits: 2,
-  })
+function readStoredSession() {
+  try {
+    const stored = localStorage.getItem('cryptopal-session')
+    return stored ? JSON.parse(stored) : null
+  } catch {
+    localStorage.removeItem('cryptopal-session')
+    return null
+  }
+}
 
-const formatCrypto = (value) =>
-  Number(value ?? 0).toLocaleString('en-US', {
+function assetMeta(symbol = '') {
+  const cleanSymbol = symbol.toUpperCase().replace(/USDT$/, '')
+  return {
+    code: cleanSymbol.slice(0, 2),
+    symbol: cleanSymbol,
+    ...(coinDirectory[cleanSymbol] ?? {
+      color: '#5e8a73',
+      name: cleanSymbol,
+    }),
+  }
+}
+
+function formatMoney(value) {
+  const number = Number(value ?? 0)
+  const maximumFractionDigits = Math.abs(number) > 0 && Math.abs(number) < 1 ? 6 : 2
+  return `$${number.toLocaleString('tr-TR', {
+    maximumFractionDigits,
+    minimumFractionDigits: Math.abs(number) >= 1 ? 2 : 0,
+  })}`
+}
+
+function formatCrypto(value) {
+  return Number(value ?? 0).toLocaleString('tr-TR', {
     maximumFractionDigits: 10,
   })
-
-const formatPercent = (value) => {
-  const number = Number(value ?? 0)
-  const sign = number > 0 ? '+' : ''
-  return `${sign}${number.toFixed(2)}%`
 }
 
-const chartColors = ['#2563eb', '#16a34a', '#f59e0b', '#dc2626', '#7c3aed', '#0891b2']
+function formatPercent(value) {
+  const number = Number(value ?? 0)
+  return `${number > 0 ? '+' : ''}${number.toFixed(2)}%`
+}
+
+function formatDate(value, includeDate = false) {
+  if (!value) return '—'
+  const date = new Date(value)
+  if (Number.isNaN(date.getTime())) return '—'
+  return date.toLocaleString('tr-TR', includeDate
+    ? { day: '2-digit', hour: '2-digit', minute: '2-digit', month: 'short' }
+    : { hour: '2-digit', minute: '2-digit' })
+}
 
 function buildPortfolioSummary(portfolio, prices) {
   if (!portfolio) {
     return {
       allocations: [],
+      cashPercent: 0,
       holdingsValue: 0,
       investedCost: 0,
       profitLoss: 0,
@@ -56,27 +137,26 @@ function buildPortfolioSummary(portfolio, prices) {
     }
   }
 
-  const priceMap = new Map(prices.map((price) => [price.symbol, Number(price.price)]))
-  const cryptoAllocations = portfolio.holdings.map((holding, index) => {
+  const priceMap = new Map(prices.map((price) => [assetMeta(price.symbol).symbol, Number(price.price)]))
+  const cryptoAllocations = (portfolio.holdings ?? []).map((holding, index) => {
+    const symbol = assetMeta(holding.symbol).symbol
     const quantity = Number(holding.quantity)
-    const price = priceMap.get(holding.symbol) ?? 0
+    const price = priceMap.get(symbol) ?? 0
     return {
       color: chartColors[index % chartColors.length],
-      label: holding.symbol,
+      label: symbol,
       quantity,
       value: quantity * price,
     }
   })
 
   const holdingsValue = cryptoAllocations.reduce((total, item) => total + item.value, 0)
-  const totalValue = Number(portfolio.fiatBalance ?? 0) + holdingsValue
-  const cashAllocation = {
-    color: '#64748b',
-    label: 'Cash',
-    quantity: null,
-    value: Number(portfolio.fiatBalance ?? 0),
-  }
-  const allocations = [cashAllocation, ...cryptoAllocations]
+  const cashValue = Number(portfolio.fiatBalance ?? 0)
+  const totalValue = cashValue + holdingsValue
+  const allocations = [
+    { color: '#355647', label: 'Nakit', quantity: null, value: cashValue },
+    ...cryptoAllocations,
+  ]
     .filter((item) => item.value > 0)
     .map((item) => ({
       ...item,
@@ -86,7 +166,7 @@ function buildPortfolioSummary(portfolio, prices) {
   const lots = new Map()
   const orderedTransactions = [...(portfolio.recentTransactions ?? [])].reverse()
   orderedTransactions.forEach((transaction) => {
-    const symbol = transaction.symbol
+    const symbol = assetMeta(transaction.symbol).symbol
     const current = lots.get(symbol) ?? { cost: 0, quantity: 0 }
     const quantity = Number(transaction.quantity)
     const totalAmount = Number(transaction.totalAmount)
@@ -99,10 +179,7 @@ function buildPortfolioSummary(portfolio, prices) {
       return
     }
 
-    if (current.quantity <= 0) {
-      return
-    }
-
+    if (current.quantity <= 0) return
     const soldRatio = Math.min(quantity / current.quantity, 1)
     lots.set(symbol, {
       cost: current.cost * (1 - soldRatio),
@@ -110,15 +187,15 @@ function buildPortfolioSummary(portfolio, prices) {
     })
   })
 
-  const investedCost = portfolio.holdings.reduce((total, holding) => {
-    const lot = lots.get(holding.symbol)
-    return total + (lot?.cost ?? 0)
+  const investedCost = (portfolio.holdings ?? []).reduce((total, holding) => {
+    return total + (lots.get(assetMeta(holding.symbol).symbol)?.cost ?? 0)
   }, 0)
   const profitLoss = holdingsValue - investedCost
   const profitLossPercent = investedCost > 0 ? (profitLoss / investedCost) * 100 : 0
 
   return {
     allocations,
+    cashPercent: totalValue > 0 ? (cashValue / totalValue) * 100 : 0,
     holdingsValue,
     investedCost,
     profitLoss,
@@ -128,10 +205,7 @@ function buildPortfolioSummary(portfolio, prices) {
 }
 
 function buildPieGradient(allocations) {
-  if (allocations.length === 0) {
-    return '#e5e7eb'
-  }
-
+  if (allocations.length === 0) return '#173025'
   let cursor = 0
   const slices = allocations.map((allocation) => {
     const start = cursor
@@ -139,17 +213,13 @@ function buildPieGradient(allocations) {
     cursor = end
     return `${allocation.color} ${start}% ${end}%`
   })
-
   return `conic-gradient(${slices.join(', ')})`
 }
 
 function App() {
   const [authMode, setAuthMode] = useState('login')
   const [authForm, setAuthForm] = useState(emptyAuth)
-  const [session, setSession] = useState(() => {
-    const stored = localStorage.getItem('cryptopal-session')
-    return stored ? JSON.parse(stored) : null
-  })
+  const [session, setSession] = useState(readStoredSession)
   const [prices, setPrices] = useState([])
   const [priceHistory, setPriceHistory] = useState([])
   const [portfolio, setPortfolio] = useState(null)
@@ -157,8 +227,12 @@ function App() {
   const [selectedAsset, setSelectedAsset] = useState(null)
   const [tradeType, setTradeType] = useState('BUY')
   const [quantity, setQuantity] = useState('')
+  const [search, setSearch] = useState('')
+  const [page, setPage] = useState(1)
+  const [lastSync, setLastSync] = useState(null)
+  const [assistantOpen, setAssistantOpen] = useState(false)
   const [aiQuestion, setAiQuestion] = useState('')
-  const [aiAnswer, setAiAnswer] = useState('')
+  const [messages, setMessages] = useState([])
   const [loading, setLoading] = useState({
     ai: false,
     auth: false,
@@ -176,7 +250,8 @@ function App() {
     setLoading((current) => ({ ...current, prices: true }))
     try {
       const data = await getPrices()
-      setPrices(data)
+      setPrices(Array.isArray(data) ? data : [])
+      setLastSync(new Date())
     } catch (requestError) {
       setError(requestError.message)
     } finally {
@@ -189,11 +264,9 @@ function App() {
       setPortfolio(null)
       return
     }
-
     setLoading((current) => ({ ...current, portfolio: true }))
     try {
-      const data = await getPortfolio(token)
-      setPortfolio(data)
+      setPortfolio(await getPortfolio(token))
     } catch (requestError) {
       setError(requestError.message)
     } finally {
@@ -206,11 +279,10 @@ function App() {
       setPriceHistory([])
       return
     }
-
     setLoading((current) => ({ ...current, history: true }))
     try {
       const data = await getPriceHistory(symbol)
-      setPriceHistory(data)
+      setPriceHistory(Array.isArray(data) ? data : [])
     } catch (requestError) {
       setError(requestError.message)
     } finally {
@@ -230,49 +302,84 @@ function App() {
 
   useEffect(() => {
     if (!selectedSymbol && prices.length > 0) {
-      setSelectedSymbol(prices[0].symbol)
+      setSelectedSymbol(assetMeta(prices[0].symbol).symbol)
     }
   }, [prices, selectedSymbol])
 
-  const holdingsBySymbol = useMemo(() => {
-    const map = new Map()
-    portfolio?.holdings?.forEach((holding) => {
-      map.set(holding.symbol, Number(holding.quantity))
-    })
-    return map
-  }, [portfolio])
-
   const selectedChartAsset = useMemo(() => {
-    if (prices.length === 0) {
-      return null
-    }
-    return prices.find((asset) => asset.symbol === selectedSymbol) ?? prices[0]
+    if (prices.length === 0) return null
+    return prices.find((asset) => assetMeta(asset.symbol).symbol === selectedSymbol) ?? prices[0]
   }, [prices, selectedSymbol])
 
   useEffect(() => {
     const symbol = selectedChartAsset?.symbol
-    if (!symbol) {
+    if (!symbol || !session) {
       setPriceHistory([])
       return undefined
     }
-
     loadPriceHistory(symbol)
     const intervalId = window.setInterval(() => loadPriceHistory(symbol), 15000)
     return () => window.clearInterval(intervalId)
-  }, [loadPriceHistory, selectedChartAsset?.symbol])
+  }, [loadPriceHistory, selectedChartAsset?.symbol, session])
+
+  useEffect(() => {
+    setPage(1)
+  }, [search])
+
+  useEffect(() => {
+    if (!selectedAsset && !assistantOpen) return undefined
+    const onKeyDown = (event) => {
+      if (event.key === 'Escape') {
+        setSelectedAsset(null)
+        setAssistantOpen(false)
+      }
+    }
+    const previousOverflow = document.body.style.overflow
+    document.body.style.overflow = 'hidden'
+    window.addEventListener('keydown', onKeyDown)
+    return () => {
+      document.body.style.overflow = previousOverflow
+      window.removeEventListener('keydown', onKeyDown)
+    }
+  }, [assistantOpen, selectedAsset])
+
+  const holdingsBySymbol = useMemo(() => {
+    const map = new Map()
+    portfolio?.holdings?.forEach((holding) => {
+      map.set(assetMeta(holding.symbol).symbol, Number(holding.quantity))
+    })
+    return map
+  }, [portfolio])
+
+  const summary = useMemo(() => buildPortfolioSummary(portfolio, prices), [portfolio, prices])
+
+  const filteredPrices = useMemo(() => {
+    const query = search.trim().toLocaleUpperCase('tr-TR')
+    if (!query) return prices
+    return prices.filter((asset) => {
+      const meta = assetMeta(asset.symbol)
+      return `${meta.symbol} ${meta.name}`.toLocaleUpperCase('tr-TR').includes(query)
+    })
+  }, [prices, search])
+
+  const totalPages = Math.max(1, Math.ceil(filteredPrices.length / PAGE_SIZE))
+  const activePage = Math.min(page, totalPages)
+  const pagedPrices = filteredPrices.slice((activePage - 1) * PAGE_SIZE, activePage * PAGE_SIZE)
+  const averageChange = prices.length
+    ? prices.reduce((total, asset) => total + Number(asset.changePercent ?? 0), 0) / prices.length
+    : 0
 
   async function handleAuthSubmit(event) {
     event.preventDefault()
     setError('')
     setMessage('')
     setLoading((current) => ({ ...current, auth: true }))
-
     try {
       const action = authMode === 'login' ? login : register
       const data = await action(authForm)
       setSession(data)
       localStorage.setItem('cryptopal-session', JSON.stringify(data))
-      setMessage(authMode === 'login' ? 'Signed in successfully.' : 'Account created successfully.')
+      setMessage(authMode === 'login' ? 'Tekrar hoş geldiniz.' : 'Hesabınız kullanıma hazır.')
       setAuthForm(emptyAuth)
     } catch (requestError) {
       setError(requestError.message)
@@ -283,27 +390,22 @@ function App() {
 
   async function handleTradeSubmit(event) {
     event.preventDefault()
-    if (!selectedAsset || !token) {
-      return
-    }
-
+    if (!selectedAsset || !token) return
     setError('')
     setMessage('')
     setLoading((current) => ({ ...current, trade: true }))
-
     try {
       const response = await executeTrade(token, {
-        symbol: selectedAsset.symbol,
-        type: tradeType,
         quantity: Number(quantity),
+        symbol: assetMeta(selectedAsset.symbol).symbol,
+        type: tradeType,
       })
       setMessage(
-        `${response.type} order executed: ${formatCrypto(response.quantity)} ${response.symbol}`,
+        `${assetMeta(response.symbol).symbol} ${response.type === 'BUY' ? 'alımı' : 'satışı'} ${formatMoney(response.executionPrice)} fiyatından tamamlandı.`,
       )
       setSelectedAsset(null)
       setQuantity('')
-      await loadPortfolio()
-      await loadPrices()
+      await Promise.all([loadPortfolio(), loadPrices()])
     } catch (requestError) {
       setError(requestError.message)
     } finally {
@@ -311,19 +413,22 @@ function App() {
     }
   }
 
-  async function handleAiSubmit(event) {
-    event.preventDefault()
-    if (!token) {
-      return
-    }
-
+  async function askAssistant(question = aiQuestion) {
+    const cleanQuestion = question.trim()
+    if (!token || !cleanQuestion || loading.ai) return
     setError('')
-    setMessage('')
+    setMessages((current) => [
+      ...current,
+      { id: `${Date.now()}-user`, role: 'user', text: cleanQuestion },
+    ])
+    setAiQuestion('')
     setLoading((current) => ({ ...current, ai: true }))
-
     try {
-      const response = await queryAi(token, { question: aiQuestion })
-      setAiAnswer(response.answer)
+      const response = await queryAi(token, { question: cleanQuestion })
+      setMessages((current) => [
+        ...current,
+        { id: `${Date.now()}-assistant`, role: 'assistant', text: response.answer },
+      ])
     } catch (requestError) {
       setError(requestError.message)
     } finally {
@@ -331,438 +436,462 @@ function App() {
     }
   }
 
-  function openTrade(asset, type) {
+  function handleAiSubmit(event) {
+    event.preventDefault()
+    askAssistant()
+  }
+
+  function openTrade(asset, type = 'BUY') {
     if (!session) {
-      setError('Login to trade this asset.')
+      setError('İşlem yapmak için giriş yapmanız gerekiyor.')
       return
     }
     setSelectedAsset(asset)
+    setSelectedSymbol(assetMeta(asset.symbol).symbol)
     setTradeType(type)
     setQuantity('')
     setError('')
-    setMessage('')
+  }
+
+  function setQuantityFromPercent(percent) {
+    if (!selectedAsset) return
+    const price = Number(selectedAsset.price)
+    const symbol = assetMeta(selectedAsset.symbol).symbol
+    const available = tradeType === 'BUY'
+      ? Number(portfolio?.fiatBalance ?? 0) / price
+      : Number(holdingsBySymbol.get(symbol) ?? 0)
+    const nextQuantity = Math.max(0, available * percent)
+    setQuantity(nextQuantity ? nextQuantity.toFixed(10).replace(/0+$/, '').replace(/\.$/, '') : '')
   }
 
   function signOut() {
     setSession(null)
     setPortfolio(null)
+    setMessages([])
+    setAssistantOpen(false)
     localStorage.removeItem('cryptopal-session')
-    setMessage('Signed out.')
   }
 
-  const canSellSelected =
-    selectedAsset && Number(holdingsBySymbol.get(selectedAsset.symbol) ?? 0) > 0
+  const dismissNotice = () => {
+    setError('')
+    setMessage('')
+  }
+
+  if (!session) {
+    return (
+      <AuthScreen
+        authForm={authForm}
+        authMode={authMode}
+        error={error}
+        loading={loading}
+        message={message}
+        onDismiss={dismissNotice}
+        onFormChange={setAuthForm}
+        onModeChange={setAuthMode}
+        onRefresh={loadPrices}
+        onSubmit={handleAuthSubmit}
+        prices={prices}
+      />
+    )
+  }
+
+  const selectedMeta = assetMeta(selectedChartAsset?.symbol)
+  const selectedHolding = Number(holdingsBySymbol.get(selectedMeta.symbol) ?? 0)
+  const selectedChange = Number(selectedChartAsset?.changePercent ?? 0)
+  const tradePrice = Number(selectedAsset?.price ?? 0)
+  const tradeSymbol = assetMeta(selectedAsset?.symbol).symbol
+  const heldQuantity = Number(holdingsBySymbol.get(tradeSymbol) ?? 0)
+  const estimate = Number(quantity || 0) * tradePrice
+  const invalidTrade = Number(quantity) <= 0
+    || (tradeType === 'BUY' && estimate > Number(portfolio?.fiatBalance ?? 0))
+    || (tradeType === 'SELL' && Number(quantity) > heldQuantity)
 
   return (
-    <main className="app-shell">
+    <div className="app-shell">
       <header className="topbar">
-        <div>
-          <span className="eyebrow">CryptoPal</span>
-          <h1>Trading Console</h1>
+        <a className="brand" href="#top" aria-label="CryptoPal ana sayfa">
+          <span className="brand-mark">C</span>
+          <span><strong>CryptoPal</strong><small>market intelligence</small></span>
+        </a>
+        <nav aria-label="Ana menü">
+          <a className="active" href="#markets"><BarChart3 size={15} /> Piyasalar</a>
+          <a href="#portfolio"><WalletCards size={15} /> Portföy</a>
+        </nav>
+        <div className="topbar-actions">
+          <span className="live-badge"><i /> CANLI</span>
+          <button className="assistant-trigger" type="button" onClick={() => setAssistantOpen(true)}>
+            <MessageSquareText size={16} />
+            <span>Piyasa Asistanı</span>
+          </button>
+          <div className="user-chip" title={session.email}>
+            <span>{session.email?.[0]?.toUpperCase() ?? 'U'}</span>
+            <small>{session.email}</small>
+          </div>
+          <button className="icon-button" type="button" onClick={signOut} aria-label="Çıkış yap" title="Çıkış yap">
+            <LogOut size={17} />
+          </button>
         </div>
-        <button className="refresh-button" type="button" onClick={loadPrices}>
-          {loading.prices ? 'Refreshing' : 'Refresh'}
-        </button>
       </header>
 
       {(error || message) && (
-        <div className={error ? 'notice error' : 'notice success'}>{error || message}</div>
+        <div className={`notice-toast ${error ? 'error' : 'success'}`} role="status">
+          {error ? <Activity size={16} /> : <CheckCircle2 size={16} />}
+          <span>{error || message}</span>
+          <button type="button" onClick={dismissNotice} aria-label="Bildirimi kapat"><X size={15} /></button>
+        </div>
       )}
 
-      <section className="workspace">
-        <aside className="side-column">
-          <section className="panel">
-            <div className="panel-header">
-              <h2>{session ? 'Session' : 'Account'}</h2>
-            </div>
+      <main className="dashboard" id="top">
+        <section className="market-pulse">
+          <span className="pulse-ring"><Activity size={19} /></span>
+          <div><strong>Piyasa akışı aktif</strong><small>Fiyatlar sunucudan 15 saniyede bir yenilenir</small></div>
+          <span className="sync-time"><Clock3 size={13} /> Son eşitleme {lastSync ? formatDate(lastSync) : 'bekleniyor'}</span>
+        </section>
 
-            {session ? (
-              <div className="session-box">
-                <div>
-                  <span className="label">Signed in as</span>
-                  <strong>{session.email}</strong>
-                </div>
-                <button type="button" onClick={signOut}>
-                  Sign out
-                </button>
+        <section className="overview-grid">
+          <article className="portfolio-hero">
+            <div className="hero-topline">
+              <span className="section-kicker">TOPLAM PORTFÖY</span>
+              <span className="privacy-note"><ShieldCheck size={13} /> Güvenli oturum</span>
+            </div>
+            <strong className="hero-value">{loading.portfolio && !portfolio ? '—' : formatMoney(summary.totalValue)}</strong>
+            <div className={`hero-change ${summary.profitLoss >= 0 ? 'positive' : 'negative'}`}>
+              {summary.profitLoss >= 0 ? <ArrowUpRight size={15} /> : <ArrowDownRight size={15} />}
+              <span>{formatMoney(summary.profitLoss)} <small>tahmini kâr/zarar</small></span>
+            </div>
+            <div className="allocation-track" aria-label={`Nakit oranı yüzde ${summary.cashPercent.toFixed(1)}`}>
+              <span style={{ width: `${summary.cashPercent}%` }} />
+            </div>
+            <div className="hero-stats">
+              <div><small>Nakit</small><strong>{formatMoney(portfolio?.fiatBalance)}</strong></div>
+              <div><small>Kripto varlıklar</small><strong>{formatMoney(summary.holdingsValue)}</strong></div>
+              <div><small>Varlık türü</small><strong>{portfolio?.holdings?.filter((item) => Number(item.quantity) > 0).length ?? 0}</strong></div>
+            </div>
+          </article>
+
+          <article className="chart-card">
+            <div className="panel-head compact">
+              <div className="selected-asset">
+                <span className="asset-icon" style={{ background: selectedMeta.color }}>{selectedMeta.code}</span>
+                <span><small>{selectedMeta.name}</small><strong>{selectedMeta.symbol} / USDT</strong></span>
               </div>
-            ) : (
-              <form className="stack-form" onSubmit={handleAuthSubmit}>
-                <div className="segmented-control">
-                  <button
-                    className={authMode === 'login' ? 'active' : ''}
-                    type="button"
-                    onClick={() => setAuthMode('login')}
-                  >
-                    Login
-                  </button>
-                  <button
-                    className={authMode === 'register' ? 'active' : ''}
-                    type="button"
-                    onClick={() => setAuthMode('register')}
-                  >
-                    Register
-                  </button>
-                </div>
-                <label>
-                  Email
-                  <input
-                    autoComplete="email"
-                    onChange={(event) =>
-                      setAuthForm((current) => ({ ...current, email: event.target.value }))
-                    }
-                    required
-                    type="email"
-                    value={authForm.email}
-                  />
-                </label>
-                <label>
-                  Password
-                  <input
-                    autoComplete={authMode === 'login' ? 'current-password' : 'new-password'}
-                    minLength={6}
-                    onChange={(event) =>
-                      setAuthForm((current) => ({
-                        ...current,
-                        password: event.target.value,
-                      }))
-                    }
-                    required
-                    type="password"
-                    value={authForm.password}
-                  />
-                </label>
-                <button disabled={loading.auth} type="submit">
-                  {loading.auth ? 'Please wait' : authMode === 'login' ? 'Login' : 'Create account'}
-                </button>
-              </form>
-            )}
-          </section>
-
-          <section className="panel">
-            <div className="panel-header">
-              <h2>Portfolio</h2>
-              {loading.portfolio && <span className="status">Loading</span>}
-            </div>
-            {session ? (
-              <Portfolio portfolio={portfolio} prices={prices} />
-            ) : (
-              <div className="empty-state">Login to see balance, holdings, and recent orders.</div>
-            )}
-          </section>
-        </aside>
-
-        <section className="main-column">
-          <section className="panel market-panel">
-            <div className="panel-header">
-              <div>
-                <h2>Live Market</h2>
-                <p>Prices are read from the backend cache and refreshed automatically.</p>
+              <div className="chart-quote">
+                <strong>{selectedChartAsset ? formatMoney(selectedChartAsset.price) : '—'}</strong>
+                <span className={selectedChange >= 0 ? 'positive' : 'negative'}>{formatPercent(selectedChange)}</span>
               </div>
-              {loading.prices && <span className="status">Syncing</span>}
             </div>
-
-            <div className="market-grid">
-              {prices.map((asset) => {
-                const heldQuantity = holdingsBySymbol.get(asset.symbol) ?? 0
-                const dailyChange = Number(asset.changePercent ?? 0)
-                const trendClass = dailyChange >= 0 ? 'up' : 'down'
-                return (
-                  <button
-                    className={`asset-card ${trendClass} ${
-                      selectedChartAsset?.symbol === asset.symbol ? 'selected' : ''
-                    }`}
-                    key={asset.symbol}
-                    onClick={() => setSelectedSymbol(asset.symbol)}
-                    type="button"
-                  >
-                    <div className="asset-card-top">
-                      <div>
-                        <span className="asset-symbol">{asset.symbol}</span>
-                        <span className="asset-pair">{asset.pair}</span>
-                      </div>
-                      <span className={`daily-change ${trendClass}`}>{formatPercent(dailyChange)}</span>
-                    </div>
-                    <strong>{formatMoney(asset.price)}</strong>
-                    <div className="asset-card-meta">
-                      <span>24h</span>
-                      <span>Held: {formatCrypto(heldQuantity)}</span>
-                    </div>
-                  </button>
-                )
-              })}
-            </div>
-          </section>
-
-          <section className="panel chart-panel">
-            <div className="panel-header">
-              <div>
-                <h2>{selectedChartAsset ? `${selectedChartAsset.symbol} Chart` : 'Price Chart'}</h2>
-                {selectedChartAsset && (
-                  <p>
-                    {formatMoney(selectedChartAsset.price)} -{' '}
-                    {formatPercent(selectedChartAsset.changePercent)} 24h
-                  </p>
-                )}
-              </div>
-              {loading.history && <span className="status">Loading</span>}
-            </div>
-            <PriceChart history={priceHistory} />
+            <PriceChart history={priceHistory} loading={loading.history} />
             <div className="chart-actions">
-              <button
-                disabled={!selectedChartAsset || !session}
-                onClick={() => openTrade(selectedChartAsset, 'BUY')}
-                type="button"
-              >
-                Buy
-              </button>
-              <button
-                className="ghost-button"
-                disabled={
-                  !selectedChartAsset ||
-                  !session ||
-                  Number(holdingsBySymbol.get(selectedChartAsset.symbol) ?? 0) <= 0
-                }
-                onClick={() => openTrade(selectedChartAsset, 'SELL')}
-                type="button"
-              >
-                Sell
+              <button type="button" onClick={() => openTrade(selectedChartAsset, 'BUY')} disabled={!selectedChartAsset}>Al</button>
+              <button className="secondary-action" type="button" onClick={() => openTrade(selectedChartAsset, 'SELL')} disabled={!selectedChartAsset || selectedHolding <= 0}>Sat</button>
+            </div>
+          </article>
+        </section>
+
+        <section className="panel market-panel" id="markets">
+          <div className="panel-head market-panel-head">
+            <div>
+              <span className="section-kicker">PİYASALAR</span>
+              <h1>Canlı varlıklar <small>{filteredPrices.length} piyasa</small></h1>
+            </div>
+            <div className="market-tools">
+              <label className="market-search">
+                <Search size={15} />
+                <input value={search} onChange={(event) => setSearch(event.target.value)} placeholder="Coin ara: BTC, ETH, SOL…" aria-label="Coin ara" />
+              </label>
+              <button className="refresh-button" type="button" onClick={() => loadPrices()} disabled={loading.prices} aria-label="Fiyatları yenile">
+                <RefreshCw size={15} className={loading.prices ? 'spin' : ''} />
+                <span>Yenile</span>
               </button>
             </div>
-          </section>
+          </div>
 
-          <section className="panel">
-            <div className="panel-header">
-              <h2>Recent Orders</h2>
+          <div className="market-table-head">
+            <span>Varlık</span><span>Fiyat</span><span>24 saat</span><span>Güncellendi</span><span />
+          </div>
+          <div className="market-list">
+            {pagedPrices.length ? pagedPrices.map((asset) => {
+              const meta = assetMeta(asset.symbol)
+              const change = Number(asset.changePercent ?? 0)
+              return (
+                <button className={`market-row ${selectedMeta.symbol === meta.symbol ? 'selected' : ''}`} key={`${asset.symbol}-${asset.pair}`} type="button" onClick={() => {
+                  setSelectedSymbol(meta.symbol)
+                  openTrade(asset)
+                }}>
+                  <span className="asset-cell">
+                    <i className="asset-icon" style={{ background: meta.color }}>{meta.code}</i>
+                    <span><strong>{meta.name}</strong><small>{meta.symbol} / USDT</small></span>
+                  </span>
+                  <strong className="mono-value">{formatMoney(asset.price)}</strong>
+                  <span className={`change-pill ${change >= 0 ? 'positive' : 'negative'}`}>
+                    {change >= 0 ? <ArrowUpRight size={13} /> : <ArrowDownRight size={13} />}
+                    {formatPercent(change)}
+                  </span>
+                  <span className="updated-cell">{formatDate(asset.updatedAt)}</span>
+                  <span className="trade-link">İşlem yap <ChevronRight size={14} /></span>
+                </button>
+              )
+            }) : (
+              <EmptyState icon={<Search size={20} />} title="Eşleşen coin bulunamadı" text="Arama ifadenizi değiştirip tekrar deneyin." />
+            )}
+          </div>
+          <div className="market-pagination">
+            <span>{filteredPrices.length ? `${(activePage - 1) * PAGE_SIZE + 1}-${Math.min(activePage * PAGE_SIZE, filteredPrices.length)} / ${filteredPrices.length}` : '0 sonuç'}</span>
+            <div>
+              <button type="button" onClick={() => setPage((current) => Math.max(1, current - 1))} disabled={activePage === 1}><ArrowLeft size={13} /> Önceki</button>
+              <b>{activePage} / {totalPages}</b>
+              <button type="button" onClick={() => setPage((current) => Math.min(totalPages, current + 1))} disabled={activePage === totalPages}>Sonraki <ArrowRight size={13} /></button>
+            </div>
+          </div>
+        </section>
+
+        <section className="portfolio-grid" id="portfolio">
+          <article className="panel holdings-panel">
+            <div className="panel-head">
+              <div><span className="section-kicker">CÜZDAN</span><h2>Varlıklarım</h2></div>
+              <span className="count-badge">{portfolio?.holdings?.filter((item) => Number(item.quantity) > 0).length ?? 0}</span>
+            </div>
+            <PortfolioHoldings portfolio={portfolio} prices={prices} summary={summary} />
+          </article>
+
+          <article className="panel orders-panel">
+            <div className="panel-head">
+              <div><span className="section-kicker">HAREKETLER</span><h2>Son işlemler</h2></div>
+              <History size={18} />
             </div>
             <RecentOrders transactions={portfolio?.recentTransactions ?? []} />
-          </section>
-
-          <section className="panel ai-panel">
-            <div className="panel-header">
-              <h2>AI Insights</h2>
-              {loading.ai && <span className="status">Thinking</span>}
-            </div>
-            {session ? (
-              <form className="ai-form" onSubmit={handleAiSubmit}>
-                <textarea
-                  maxLength={1000}
-                  onChange={(event) => setAiQuestion(event.target.value)}
-                  placeholder="Portföyümde risk var mı?"
-                  required
-                  rows={3}
-                  value={aiQuestion}
-                />
-                <button disabled={loading.ai || !aiQuestion.trim()} type="submit">
-                  {loading.ai ? 'Asking' : 'Ask AI'}
-                </button>
-                {aiAnswer && <div className="ai-answer">{aiAnswer}</div>}
-              </form>
-            ) : (
-              <div className="empty-state">Login to ask AI about your portfolio.</div>
-            )}
-          </section>
+          </article>
         </section>
-      </section>
+
+        <footer>
+          <span>CryptoPal</span>
+          <small>Piyasa verileri bilgilendirme amaçlıdır.</small>
+          <span className={averageChange >= 0 ? 'positive' : 'negative'}>Piyasa ortalaması {formatPercent(averageChange)}</span>
+        </footer>
+      </main>
+
+      {assistantOpen && (
+        <div className="assistant-layer">
+          <button className="assistant-scrim" type="button" aria-label="Piyasa asistanını kapat" onClick={() => setAssistantOpen(false)} />
+          <aside className="assistant-drawer" aria-label="Piyasa Asistanı">
+            <header className="assistant-drawer-head">
+              <div>
+                <span className="assistant-mark"><MessageSquareText size={17} /></span>
+                <span><small>CRYPTOPAL</small><strong>Piyasa Asistanı</strong></span>
+              </div>
+              <div className="assistant-head-actions">
+                <span className="assistant-ready"><i /> PORTFÖY BAĞLI</span>
+                <button type="button" onClick={() => setAssistantOpen(false)} aria-label="Kapat"><X size={17} /></button>
+              </div>
+            </header>
+            <div className="assistant-messages" aria-live="polite">
+              <div className="assistant-message assistant">
+                <span><MessageSquareText size={13} /></span>
+                <p>Merhaba. Portföyünüz, nakit oranınız, varlık dağılımınız ve son işlemleriniz hakkında soru sorabilirsiniz.</p>
+              </div>
+              {messages.map((chatMessage) => (
+                <div className={`assistant-message ${chatMessage.role}`} key={chatMessage.id}>
+                  {chatMessage.role === 'assistant' && <span><MessageSquareText size={13} /></span>}
+                  <p>{chatMessage.text}</p>
+                </div>
+              ))}
+              {loading.ai && (
+                <div className="assistant-message assistant">
+                  <span><MessageSquareText size={13} /></span>
+                  <p className="assistant-typing"><i /><i /><i /></p>
+                </div>
+              )}
+            </div>
+            <div className="assistant-suggestions">
+              {assistantSuggestions.map((suggestion) => (
+                <button type="button" key={suggestion} disabled={loading.ai} onClick={() => askAssistant(suggestion)}>{suggestion}</button>
+              ))}
+            </div>
+            <form className="assistant-compose" onSubmit={handleAiSubmit}>
+              <textarea
+                maxLength={1000}
+                value={aiQuestion}
+                onChange={(event) => setAiQuestion(event.target.value)}
+                onKeyDown={(event) => {
+                  if (event.key === 'Enter' && !event.shiftKey) {
+                    event.preventDefault()
+                    askAssistant()
+                  }
+                }}
+                placeholder="Portföyünüz hakkında bir soru sorun…"
+                rows={2}
+                aria-label="Piyasa asistanına soru"
+              />
+              <button type="submit" disabled={loading.ai || !aiQuestion.trim()}><Send size={15} /> Gönder</button>
+            </form>
+            <small className="assistant-note">Yanıtlar bilgilendirme amaçlıdır, yatırım tavsiyesi değildir.</small>
+          </aside>
+        </div>
+      )}
 
       {selectedAsset && (
-        <div className="modal-backdrop">
-          <form className="trade-modal" onSubmit={handleTradeSubmit}>
-            <div className="panel-header">
-              <div>
-                <h2>
-                  {tradeType} {selectedAsset.symbol}
-                </h2>
-                <p>Market price: {formatMoney(selectedAsset.price)}</p>
+        <div className="modal-layer">
+          <button className="modal-scrim" type="button" aria-label="İşlem penceresini kapat" onClick={() => setSelectedAsset(null)} />
+          <form className="trade-modal" onSubmit={handleTradeSubmit} role="dialog" aria-modal="true" aria-labelledby="trade-title">
+            <div className="trade-modal-head">
+              <div className="trade-asset">
+                <i className="asset-icon large" style={{ background: assetMeta(selectedAsset.symbol).color }}>{assetMeta(selectedAsset.symbol).code}</i>
+                <span><small>{assetMeta(selectedAsset.symbol).name}</small><h2 id="trade-title">{assetMeta(selectedAsset.symbol).symbol} işlemi</h2></span>
               </div>
-              <button className="icon-button" type="button" onClick={() => setSelectedAsset(null)}>
-                X
-              </button>
+              <button className="icon-button" type="button" onClick={() => setSelectedAsset(null)} aria-label="Kapat"><X size={18} /></button>
             </div>
             <div className="segmented-control">
-              <button
-                className={tradeType === 'BUY' ? 'active' : ''}
-                type="button"
-                onClick={() => setTradeType('BUY')}
-              >
-                Buy
-              </button>
-              <button
-                className={tradeType === 'SELL' ? 'active' : ''}
-                disabled={!canSellSelected}
-                type="button"
-                onClick={() => setTradeType('SELL')}
-              >
-                Sell
-              </button>
+              <button className={tradeType === 'BUY' ? 'active buy' : ''} type="button" onClick={() => { setTradeType('BUY'); setQuantity('') }}>Al</button>
+              <button className={tradeType === 'SELL' ? 'active sell' : ''} type="button" disabled={heldQuantity <= 0} onClick={() => { setTradeType('SELL'); setQuantity('') }}>Sat</button>
             </div>
-            <label>
-              Quantity
-              <input
-                autoFocus
-                min="0.0000000001"
-                onChange={(event) => setQuantity(event.target.value)}
-                required
-                step="0.0000000001"
-                type="number"
-                value={quantity}
-              />
+            <div className="trade-balance-row">
+              <span>{tradeType === 'BUY' ? 'Kullanılabilir nakit' : 'Kullanılabilir miktar'}</span>
+              <strong>{tradeType === 'BUY' ? formatMoney(portfolio?.fiatBalance) : `${formatCrypto(heldQuantity)} ${tradeSymbol}`}</strong>
+            </div>
+            <label className="quantity-field">
+              <span>Miktar</span>
+              <div><input autoFocus min="0.0000000001" step="0.0000000001" type="number" value={quantity} onChange={(event) => setQuantity(event.target.value)} required /><b>{tradeSymbol}</b></div>
             </label>
-            <div className="estimate">
-              Estimated total
-              <strong>{formatMoney(Number(quantity || 0) * Number(selectedAsset.price))}</strong>
+            <div className="quick-percentages">
+              {[0.25, 0.5, 0.75, 1].map((percent) => (
+                <button type="button" key={percent} onClick={() => setQuantityFromPercent(percent)}>%{percent * 100}</button>
+              ))}
             </div>
-            <button disabled={loading.trade} type="submit">
-              {loading.trade ? 'Executing' : 'Execute order'}
+            <div className="trade-summary">
+              <span><small>Piyasa fiyatı</small><strong>{formatMoney(tradePrice)}</strong></span>
+              <span><small>Tahmini toplam</small><strong>{formatMoney(estimate)}</strong></span>
+            </div>
+            <p className="execution-note"><Activity size={13} /> İşlem, gönderildiği anda sunucudaki güncel piyasa fiyatıyla gerçekleşir.</p>
+            <button className={`primary-action ${tradeType === 'SELL' ? 'sell-action' : ''}`} type="submit" disabled={loading.trade || invalidTrade}>
+              {loading.trade ? 'İşleniyor…' : `${tradeSymbol} ${tradeType === 'BUY' ? 'alımını' : 'satışını'} tamamla`}
             </button>
           </form>
         </div>
       )}
+    </div>
+  )
+}
+
+function AuthScreen({ authForm, authMode, error, loading, message, onDismiss, onFormChange, onModeChange, onRefresh, onSubmit, prices }) {
+  return (
+    <main className="auth-page">
+      {(error || message) && (
+        <div className={`notice-toast auth-notice ${error ? 'error' : 'success'}`} role="status">
+          {error ? <Activity size={16} /> : <CheckCircle2 size={16} />}
+          <span>{error || message}</span>
+          <button type="button" onClick={onDismiss} aria-label="Bildirimi kapat"><X size={15} /></button>
+        </div>
+      )}
+      <section className="auth-showcase">
+        <a className="brand auth-brand" href="#"><span className="brand-mark">C</span><span><strong>CryptoPal</strong><small>market intelligence</small></span></a>
+        <div className="auth-copy">
+          <span className="section-kicker">PİYASAYI TEK EKRANDAN İZLEYİN</span>
+          <h1>Portföyünüz için sade ve canlı bir işlem alanı.</h1>
+          <p>Güncel fiyatları takip edin, varlık dağılımınızı görün ve portföyünüz hakkında sorular sorun.</p>
+          <div className="auth-features">
+            <span><Activity size={17} /> 15 saniyelik fiyat akışı</span>
+            <span><WalletCards size={17} /> Portföy ve işlem geçmişi</span>
+            <span><MessageSquareText size={17} /> Portföy bağlamlı asistan</span>
+          </div>
+        </div>
+        <div className="auth-market-preview">
+          <div className="preview-head"><span><i /> PİYASA CANLI</span><button type="button" onClick={() => onRefresh()} aria-label="Fiyatları yenile"><RefreshCw size={14} className={loading.prices ? 'spin' : ''} /></button></div>
+          {prices.slice(0, 3).map((asset) => {
+            const meta = assetMeta(asset.symbol)
+            const change = Number(asset.changePercent ?? 0)
+            return <div className="preview-row" key={asset.symbol}><span><i className="asset-icon" style={{ background: meta.color }}>{meta.code}</i><b>{meta.symbol}</b></span><strong>{formatMoney(asset.price)}</strong><small className={change >= 0 ? 'positive' : 'negative'}>{formatPercent(change)}</small></div>
+          })}
+          {!prices.length && <div className="preview-loading">Piyasa verisi bekleniyor…</div>}
+        </div>
+      </section>
+
+      <section className="auth-form-side">
+        <form className="auth-card" onSubmit={onSubmit}>
+          <span className="auth-icon"><LogIn size={20} /></span>
+          <div><span className="section-kicker">HESAP</span><h2>{authMode === 'login' ? 'Tekrar hoş geldiniz' : 'Yeni hesap oluşturun'}</h2><p>{authMode === 'login' ? 'Portföyünüze devam etmek için giriş yapın.' : 'Birkaç saniye içinde hesabınızı hazırlayın.'}</p></div>
+          <div className="segmented-control auth-segment">
+            <button className={authMode === 'login' ? 'active' : ''} type="button" onClick={() => onModeChange('login')}>Giriş yap</button>
+            <button className={authMode === 'register' ? 'active' : ''} type="button" onClick={() => onModeChange('register')}>Kayıt ol</button>
+          </div>
+          <label><span>E-posta</span><input autoComplete="email" type="email" value={authForm.email} onChange={(event) => onFormChange((current) => ({ ...current, email: event.target.value }))} placeholder="ornek@email.com" required /></label>
+          <label><span>Şifre</span><input autoComplete={authMode === 'login' ? 'current-password' : 'new-password'} type="password" minLength={6} maxLength={100} value={authForm.password} onChange={(event) => onFormChange((current) => ({ ...current, password: event.target.value }))} placeholder="En az 6 karakter" required /></label>
+          <button className="primary-action" type="submit" disabled={loading.auth}>{loading.auth ? 'Lütfen bekleyin…' : authMode === 'login' ? 'Hesabıma giriş yap' : 'Hesabımı oluştur'} <ArrowRight size={16} /></button>
+          <small className="auth-footnote"><ShieldCheck size={13} /> Oturumunuz güvenli bağlantı üzerinden korunur.</small>
+        </form>
+      </section>
     </main>
   )
 }
 
-function PriceChart({ history }) {
+function PriceChart({ history, loading }) {
   const chartData = history.map((point) => ({
     ...point,
     price: Number(point.price),
-    time: new Date(point.capturedAt).toLocaleTimeString('en-US', {
-      hour: '2-digit',
-      minute: '2-digit',
-    }),
+    time: formatDate(point.capturedAt),
   }))
 
+  if (loading && chartData.length === 0) {
+    return <div className="chart-state"><RefreshCw className="spin" size={18} /> Grafik yükleniyor</div>
+  }
   if (chartData.length === 0) {
-    return <div className="empty-state">Price history will appear after market snapshots are collected.</div>
+    return <div className="chart-state"><BarChart3 size={19} /> Fiyat geçmişi oluştuğunda grafik burada görünecek.</div>
   }
 
   return (
     <div className="price-chart">
-      <ResponsiveContainer height={260} width="100%">
-        <LineChart data={chartData} margin={{ bottom: 4, left: 4, right: 18, top: 8 }}>
-          <CartesianGrid stroke="#e5e7eb" strokeDasharray="4 4" />
-          <XAxis dataKey="time" minTickGap={24} stroke="#64748b" tick={{ fontSize: 12 }} />
-          <YAxis
-            domain={['auto', 'auto']}
-            stroke="#64748b"
-            tick={{ fontSize: 12 }}
-            tickFormatter={(value) =>
-              Number(value).toLocaleString('en-US', {
-                maximumFractionDigits: 2,
-              })
-            }
-            width={72}
-          />
-          <Tooltip
-            formatter={(value) => [formatMoney(value), 'Price']}
-            labelFormatter={(label) => `Time: ${label}`}
-          />
-          <Line
-            dataKey="price"
-            dot={false}
-            isAnimationActive={false}
-            stroke="#2563eb"
-            strokeWidth={3}
-            type="monotone"
-          />
+      <ResponsiveContainer height="100%" width="100%">
+        <LineChart data={chartData} margin={{ bottom: 0, left: -12, right: 8, top: 12 }}>
+          <CartesianGrid stroke="rgba(190, 231, 206, 0.08)" strokeDasharray="3 5" vertical={false} />
+          <XAxis dataKey="time" minTickGap={30} stroke="#4f675a" tick={{ fill: '#6f887b', fontSize: 9 }} tickLine={false} axisLine={false} />
+          <YAxis domain={['auto', 'auto']} stroke="#4f675a" tick={{ fill: '#6f887b', fontSize: 9 }} tickFormatter={(value) => Number(value).toLocaleString('tr-TR', { maximumFractionDigits: 2 })} tickLine={false} axisLine={false} width={64} />
+          <Tooltip formatter={(value) => [formatMoney(value), 'Fiyat']} labelFormatter={(label) => `Saat ${label}`} contentStyle={{ background: '#0d1d15', border: '1px solid rgba(190, 231, 206, 0.13)', borderRadius: 10, color: '#dce9e1', fontSize: 11 }} labelStyle={{ color: '#7f998a' }} />
+          <Line dataKey="price" dot={false} isAnimationActive={false} stroke="#7dfab2" strokeWidth={2.3} type="monotone" />
         </LineChart>
       </ResponsiveContainer>
     </div>
   )
 }
 
-function Portfolio({ portfolio, prices }) {
-  if (!portfolio) {
-    return <div className="empty-state">Portfolio data is loading.</div>
+function PortfolioHoldings({ portfolio, prices, summary }) {
+  const priceMap = new Map(prices.map((asset) => [assetMeta(asset.symbol).symbol, Number(asset.price)]))
+  const holdings = (portfolio?.holdings ?? []).filter((holding) => Number(holding.quantity) > 0)
+  if (!holdings.length) {
+    return <EmptyState icon={<Coins size={21} />} title="Henüz kripto varlığınız yok" text="Piyasa listesinden bir coin seçerek ilk işleminizi yapabilirsiniz." />
   }
 
-  const summary = buildPortfolioSummary(portfolio, prices)
-  const pieGradient = buildPieGradient(summary.allocations)
-  const profitClass = summary.profitLoss >= 0 ? 'positive' : 'negative'
-
   return (
-    <div className="portfolio-block">
-      <div className="balance-box">
-        <span className="label">Cash balance</span>
-        <strong>{formatMoney(portfolio.fiatBalance)}</strong>
-      </div>
-      <div className="portfolio-chart-block">
-        <div className="donut-chart" style={{ background: pieGradient }}>
-          <div className="donut-hole">
-            <span>Total</span>
-            <strong>{formatMoney(summary.totalValue)}</strong>
-          </div>
-        </div>
-        <div className="allocation-list">
-          {summary.allocations.length === 0 ? (
-            <div className="empty-state">No portfolio value yet.</div>
-          ) : (
-            summary.allocations.map((allocation) => (
-              <div className="allocation-row" key={allocation.label}>
-                <span className="swatch" style={{ backgroundColor: allocation.color }}></span>
-                <span>{allocation.label}</span>
-                <strong>{allocation.percent.toFixed(1)}%</strong>
-              </div>
-            ))
-          )}
-        </div>
+    <div className="holdings-content">
+      <div className="donut-wrap">
+        <div className="donut-chart" style={{ background: buildPieGradient(summary.allocations) }}><div><small>Kripto değeri</small><strong>{formatMoney(summary.holdingsValue)}</strong></div></div>
       </div>
       <div className="holdings-list">
-        {portfolio.holdings.length === 0 ? (
-          <div className="empty-state">No crypto holdings yet.</div>
-        ) : (
-          portfolio.holdings.map((holding) => (
-            <div className="holding-row" key={holding.symbol}>
-              <span>{holding.symbol}</span>
-              <strong>{formatCrypto(holding.quantity)}</strong>
-            </div>
-          ))
-        )}
-      </div>
-      <div className="profit-card">
-        <div>
-          <span className="label">Crypto value</span>
-          <strong>{formatMoney(summary.holdingsValue)}</strong>
-        </div>
-        <div>
-          <span className="label">Cost basis</span>
-          <strong>{formatMoney(summary.investedCost)}</strong>
-        </div>
-        <div className={profitClass}>
-          <span className="label">Profit / Loss</span>
-          <strong>{formatMoney(summary.profitLoss)}</strong>
-          <small>{summary.profitLossPercent.toFixed(2)}%</small>
-        </div>
+        {holdings.map((holding) => {
+          const meta = assetMeta(holding.symbol)
+          const value = Number(holding.quantity) * (priceMap.get(meta.symbol) ?? 0)
+          return <div className="holding-row" key={holding.symbol}><span className="asset-cell"><i className="asset-dot" style={{ background: meta.color }} /><span><strong>{meta.symbol}</strong><small>{formatCrypto(holding.quantity)} adet</small></span></span><strong>{formatMoney(value)}</strong></div>
+        })}
       </div>
     </div>
   )
 }
 
 function RecentOrders({ transactions }) {
-  if (transactions.length === 0) {
-    return <div className="empty-state">No orders yet.</div>
+  if (!transactions.length) {
+    return <EmptyState icon={<History size={21} />} title="Henüz işlem yok" text="Alım veya satım işlemleriniz burada listelenecek." />
   }
-
   return (
-    <div className="orders-table">
-      <div className="orders-head">
-        <span>Type</span>
-        <span>Asset</span>
-        <span>Qty</span>
-        <span>Total</span>
-      </div>
-      {transactions.map((transaction) => (
-        <div className="orders-row" key={transaction.id}>
-          <span className={transaction.type === 'BUY' ? 'buy-text' : 'sell-text'}>
-            {transaction.type}
-          </span>
-          <span>{transaction.symbol}</span>
-          <span>{formatCrypto(transaction.quantity)}</span>
-          <span>{formatMoney(transaction.totalAmount)}</span>
-        </div>
-      ))}
+    <div className="orders-list">
+      {transactions.slice(0, 6).map((transaction) => {
+        const meta = assetMeta(transaction.symbol)
+        const isBuy = transaction.type === 'BUY'
+        return <div className="order-row" key={transaction.id}><span className={`order-icon ${isBuy ? 'buy' : 'sell'}`}>{isBuy ? <ArrowDownRight size={15} /> : <ArrowUpRight size={15} />}</span><span><strong>{meta.symbol} {isBuy ? 'alımı' : 'satışı'}</strong><small>{formatDate(transaction.createdAt, true)} · {formatCrypto(transaction.quantity)} {meta.symbol}</small></span><span><strong>{formatMoney(transaction.totalAmount)}</strong><small>@ {formatMoney(transaction.executionPrice)}</small></span></div>
+      })}
     </div>
   )
+}
+
+function EmptyState({ icon, title, text }) {
+  return <div className="empty-state"><span>{icon}</span><div><strong>{title}</strong><p>{text}</p></div></div>
 }
 
 export default App
