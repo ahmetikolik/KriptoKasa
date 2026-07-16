@@ -4,6 +4,12 @@ CryptoPal is a full-stack cryptocurrency trading dashboard built with a Spring B
 
 The application lets users register, log in, view live crypto prices, inspect their portfolio, execute buy/sell orders, and ask an AI assistant questions about their portfolio context.
 
+## Application Screenshot
+
+The trading console shows the authenticated session, cash balance, portfolio allocation donut chart, live market cards, 24h price movement, held quantities, and selected asset state in a single SPA dashboard.
+
+![CryptoPal Trading Console Screenshot](docs/images/trading-console-screenshot.png)
+
 ![CryptoPal Architecture](docs/images/architecture.svg)
 
 ## Project Structure
