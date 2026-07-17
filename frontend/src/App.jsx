@@ -270,6 +270,24 @@ function App() {
   }, [loadPortfolio])
 
   useEffect(() => {
+    if (!settingsOpen) {
+      return undefined
+    }
+    const previousOverflow = document.body.style.overflow
+    const closeOnEscape = (event) => {
+      if (event.key === 'Escape') {
+        setSettingsOpen(false)
+      }
+    }
+    document.body.style.overflow = 'hidden'
+    window.addEventListener('keydown', closeOnEscape)
+    return () => {
+      document.body.style.overflow = previousOverflow
+      window.removeEventListener('keydown', closeOnEscape)
+    }
+  }, [settingsOpen])
+
+  useEffect(() => {
     if (!selectedSymbol && prices.length > 0) {
       setSelectedSymbol(prices[0].symbol)
     }
@@ -454,46 +472,58 @@ function App() {
                   <strong>{session.email}</strong>
                 </div>
                 <div className="session-actions">
-                  <button className="ghost-button" type="button" aria-expanded={settingsOpen} aria-controls="account-settings" onClick={() => { setSettingsOpen((current) => !current); setSettingsFeedback('') }}>
-                    {settingsOpen ? 'Close settings' : 'Account settings'}
+                  <button className="ghost-button" type="button" aria-haspopup="dialog" aria-expanded={settingsOpen} aria-controls="account-settings" onClick={() => { setSettingsOpen(true); setSettingsFeedback('') }}>
+                    Account settings
                   </button>
                   <button type="button" onClick={signOut}>Sign out</button>
                 </div>
 
                 {settingsOpen && (
-                  <div className="account-settings" id="account-settings">
-                    <div className="settings-heading">
-                      <span className="label">Security</span>
-                      <h3>Change password</h3>
-                      <p>Use at least 8 characters for your new password.</p>
-                    </div>
-                    <form className="settings-form" onSubmit={handlePasswordSettingsSubmit}>
-                      <label>
-                        Current password
-                        <input autoComplete="current-password" minLength={6} onChange={(event) => setPasswordForm((current) => ({ ...current, currentPassword: event.target.value }))} required type="password" value={passwordForm.currentPassword}/>
-                      </label>
-                      <label>
-                        New password
-                        <input autoComplete="new-password" minLength={8} onChange={(event) => setPasswordForm((current) => ({ ...current, newPassword: event.target.value }))} required type="password" value={passwordForm.newPassword}/>
-                      </label>
-                      <label>
-                        Confirm new password
-                        <input autoComplete="new-password" minLength={8} onChange={(event) => setPasswordForm((current) => ({ ...current, confirmPassword: event.target.value }))} required type="password" value={passwordForm.confirmPassword}/>
-                      </label>
-                      <button type="submit">Validate password change</button>
-                    </form>
+                  <div className="settings-backdrop" onMouseDown={() => setSettingsOpen(false)}>
+                    <section aria-labelledby="settings-title" aria-modal="true" className="account-settings" id="account-settings" onMouseDown={(event) => event.stopPropagation()} role="dialog">
+                      <header className="settings-modal-header">
+                        <div>
+                          <span className="label">Account</span>
+                          <h2 id="settings-title">Account settings</h2>
+                          <p>{session.email}</p>
+                        </div>
+                        <button aria-label="Close account settings" className="icon-button" onClick={() => setSettingsOpen(false)} type="button">×</button>
+                      </header>
+                      <div className="settings-modal-body">
+                        <div className="settings-heading">
+                          <span className="label">Security</span>
+                          <h3>Change password</h3>
+                          <p>Use at least 8 characters for your new password.</p>
+                        </div>
+                        <form className="settings-form" onSubmit={handlePasswordSettingsSubmit}>
+                          <label>
+                            Current password
+                            <input autoComplete="current-password" minLength={6} onChange={(event) => setPasswordForm((current) => ({ ...current, currentPassword: event.target.value }))} required type="password" value={passwordForm.currentPassword}/>
+                          </label>
+                          <label>
+                            New password
+                            <input autoComplete="new-password" minLength={8} onChange={(event) => setPasswordForm((current) => ({ ...current, newPassword: event.target.value }))} required type="password" value={passwordForm.newPassword}/>
+                          </label>
+                          <label>
+                            Confirm new password
+                            <input autoComplete="new-password" minLength={8} onChange={(event) => setPasswordForm((current) => ({ ...current, confirmPassword: event.target.value }))} required type="password" value={passwordForm.confirmPassword}/>
+                          </label>
+                          <button type="submit">Validate password change</button>
+                        </form>
 
-                    <div className="danger-zone">
-                      <span className="label">Danger zone</span>
-                      <h3>Delete account</h3>
-                      <p>This will permanently remove the account, portfolio and order history after backend confirmation.</p>
-                      <label>
-                        Type {session.email} to confirm
-                        <input onChange={(event) => setDeleteConfirmation(event.target.value)} placeholder={session.email} type="email" value={deleteConfirmation}/>
-                      </label>
-                      <button className="danger-button" disabled={deleteConfirmation !== session.email} onClick={handleDeleteAccount} type="button">Validate account deletion</button>
-                    </div>
-                    {settingsFeedback && <div className="settings-feedback" role="status">{settingsFeedback}</div>}
+                        <div className="danger-zone">
+                          <span className="label">Danger zone</span>
+                          <h3>Delete account</h3>
+                          <p>This will permanently remove the account, portfolio and order history after backend confirmation.</p>
+                          <label>
+                            Type {session.email} to confirm
+                            <input onChange={(event) => setDeleteConfirmation(event.target.value)} placeholder={session.email} type="email" value={deleteConfirmation}/>
+                          </label>
+                          <button className="danger-button" disabled={deleteConfirmation !== session.email} onClick={handleDeleteAccount} type="button">Validate account deletion</button>
+                        </div>
+                        {settingsFeedback && <div className="settings-feedback" role="status">{settingsFeedback}</div>}
+                      </div>
+                    </section>
                   </div>
                 )}
               </div>
