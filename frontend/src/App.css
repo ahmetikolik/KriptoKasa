@@ -417,7 +417,7 @@ label {
   grid-template-columns: 1fr 1fr;
 }
 
-.trade-workspace { display: grid; gap: 20px; grid-template-columns: minmax(0, 1fr) 290px; }
+.trade-workspace { display: grid; gap: 20px; grid-template-columns: minmax(0, 1fr) 290px; scroll-margin-top: 16px; }
 .chart-panel { display: grid; min-width: 0; }
 .inline-trade-panel { align-content: start; background: #f8fafc; border: 1px solid #d9e0ea; border-radius: 8px; display: grid; gap: 18px; padding: 16px; }
 .inline-trade-form { display: grid; gap: 14px; }

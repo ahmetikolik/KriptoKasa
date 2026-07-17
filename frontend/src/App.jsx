@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useMemo, useState } from 'react'
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import {
   CartesianGrid,
   Line,
@@ -192,6 +192,7 @@ function App() {
   const [message, setMessage] = useState('')
   const [error, setError] = useState('')
   const [refreshCountdown, setRefreshCountdown] = useState(15)
+  const tradeWorkspaceRef = useRef(null)
 
   const token = session?.token
 
@@ -367,6 +368,16 @@ function App() {
     setMessage('Signed out.')
   }
 
+  function selectAsset(asset) {
+    setSelectedSymbol(asset.symbol)
+    setQuantity('')
+    setError('')
+    setMessage('')
+    window.requestAnimationFrame(() => {
+      tradeWorkspaceRef.current?.scrollIntoView({ behavior: 'smooth', block: 'start' })
+    })
+  }
+
   const canSellSelected =
     selectedChartAsset && Number(holdingsBySymbol.get(selectedChartAsset.symbol) ?? 0) > 0
 
@@ -486,11 +497,13 @@ function App() {
                 const trendClass = dailyChange >= 0 ? 'up' : 'down'
                 return (
                   <button
+                    aria-controls="trade-workspace"
+                    aria-pressed={selectedChartAsset?.symbol === asset.symbol}
                     className={`asset-card ${trendClass} ${
                       selectedChartAsset?.symbol === asset.symbol ? 'selected' : ''
                     }`}
                     key={asset.symbol}
-                    onClick={() => setSelectedSymbol(asset.symbol)}
+                    onClick={() => selectAsset(asset)}
                     type="button"
                   >
                     <div className="asset-card-top">
@@ -514,7 +527,7 @@ function App() {
             </div>
           </section>
 
-          <section className="panel trade-workspace">
+          <section className="panel trade-workspace" id="trade-workspace" ref={tradeWorkspaceRef}>
             <div className="chart-panel">
               <div className="panel-header">
                 <div>
