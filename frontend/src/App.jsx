@@ -44,6 +44,29 @@ const formatPercent = (value) => {
 
 const chartColors = ['#2563eb', '#16a34a', '#f59e0b', '#dc2626', '#7c3aed', '#0891b2']
 
+const coinIconOverrides = {
+  APT: 'https://coin-images.coingecko.com/coins/images/26455/large/Aptos-Network-Symbol-Black-RGB-1x.png?1761789140',
+  ARB: 'https://coin-images.coingecko.com/coins/images/16547/large/arb.jpg?1721358242',
+  NEAR: 'https://coin-images.coingecko.com/coins/images/10365/large/near.jpg?1696510367',
+}
+
+function CoinIcon({ symbol, size = 'medium' }) {
+  const [failed, setFailed] = useState(false)
+  const source =
+    coinIconOverrides[symbol] ??
+    `https://cdn.jsdelivr.net/gh/spothq/cryptocurrency-icons@master/svg/color/${symbol.toLowerCase()}.svg`
+
+  return (
+    <span className={`coin-icon ${size}`} aria-label={`${symbol} logo`}>
+      {failed ? (
+        <span>{symbol.slice(0, 2)}</span>
+      ) : (
+        <img alt="" loading="lazy" onError={() => setFailed(true)} src={source} />
+      )}
+    </span>
+  )
+}
+
 function buildPortfolioSummary(portfolio, prices) {
   if (!portfolio) {
     return {
@@ -154,7 +177,6 @@ function App() {
   const [priceHistory, setPriceHistory] = useState([])
   const [portfolio, setPortfolio] = useState(null)
   const [selectedSymbol, setSelectedSymbol] = useState('')
-  const [selectedAsset, setSelectedAsset] = useState(null)
   const [tradeType, setTradeType] = useState('BUY')
   const [quantity, setQuantity] = useState('')
   const [aiQuestion, setAiQuestion] = useState('')
@@ -291,7 +313,7 @@ function App() {
 
   async function handleTradeSubmit(event) {
     event.preventDefault()
-    if (!selectedAsset || !token) {
+    if (!selectedChartAsset || !token) {
       return
     }
 
@@ -301,14 +323,13 @@ function App() {
 
     try {
       const response = await executeTrade(token, {
-        symbol: selectedAsset.symbol,
+        symbol: selectedChartAsset.symbol,
         type: tradeType,
         quantity: Number(quantity),
       })
       setMessage(
         `${response.type} order executed: ${formatCrypto(response.quantity)} ${response.symbol}`,
       )
-      setSelectedAsset(null)
       setQuantity('')
       await loadPortfolio()
       await loadPrices()
@@ -339,18 +360,6 @@ function App() {
     }
   }
 
-  function openTrade(asset, type) {
-    if (!session) {
-      setError('Login to trade this asset.')
-      return
-    }
-    setSelectedAsset(asset)
-    setTradeType(type)
-    setQuantity('')
-    setError('')
-    setMessage('')
-  }
-
   function signOut() {
     setSession(null)
     setPortfolio(null)
@@ -359,7 +368,7 @@ function App() {
   }
 
   const canSellSelected =
-    selectedAsset && Number(holdingsBySymbol.get(selectedAsset.symbol) ?? 0) > 0
+    selectedChartAsset && Number(holdingsBySymbol.get(selectedChartAsset.symbol) ?? 0) > 0
 
   return (
     <main className="app-shell">
@@ -485,9 +494,12 @@ function App() {
                     type="button"
                   >
                     <div className="asset-card-top">
-                      <div>
+                      <div className="asset-identity">
+                        <CoinIcon symbol={asset.symbol} />
+                        <div>
                         <span className="asset-symbol">{asset.symbol}</span>
                         <span className="asset-pair">{asset.pair}</span>
+                        </div>
                       </div>
                       <span className={`daily-change ${trendClass}`}>{formatPercent(dailyChange)}</span>
                     </div>
@@ -502,41 +514,54 @@ function App() {
             </div>
           </section>
 
-          <section className="panel chart-panel">
-            <div className="panel-header">
-              <div>
-                <h2>{selectedChartAsset ? `${selectedChartAsset.symbol} Chart` : 'Price Chart'}</h2>
-                {selectedChartAsset && (
-                  <p>
-                    {formatMoney(selectedChartAsset.price)} -{' '}
-                    {formatPercent(selectedChartAsset.changePercent)} 24h
-                  </p>
-                )}
+          <section className="panel trade-workspace">
+            <div className="chart-panel">
+              <div className="panel-header">
+                <div>
+                  <span className="eyebrow">Selected market</span>
+                  <h2>{selectedChartAsset ? `${selectedChartAsset.symbol} Chart` : 'Price Chart'}</h2>
+                  {selectedChartAsset && (
+                    <p>
+                      {formatMoney(selectedChartAsset.price)} -{' '}
+                      {formatPercent(selectedChartAsset.changePercent)} 24h
+                    </p>
+                  )}
+                </div>
+                {loading.history && <span className="status">Loading</span>}
               </div>
-              {loading.history && <span className="status">Loading</span>}
+              <PriceChart history={priceHistory} />
             </div>
-            <PriceChart history={priceHistory} />
-            <div className="chart-actions">
-              <button
-                disabled={!selectedChartAsset || !session}
-                onClick={() => openTrade(selectedChartAsset, 'BUY')}
-                type="button"
-              >
-                Buy
-              </button>
-              <button
-                className="ghost-button"
-                disabled={
-                  !selectedChartAsset ||
-                  !session ||
-                  Number(holdingsBySymbol.get(selectedChartAsset.symbol) ?? 0) <= 0
-                }
-                onClick={() => openTrade(selectedChartAsset, 'SELL')}
-                type="button"
-              >
-                Sell
-              </button>
-            </div>
+
+            <aside className="inline-trade-panel">
+              <div className="selected-asset-heading">
+                {selectedChartAsset && (
+                  <CoinIcon key={selectedChartAsset.symbol} size="large" symbol={selectedChartAsset.symbol}/>
+                )}
+                <div>
+                <span className="eyebrow">Quick trade</span>
+                <h2>{selectedChartAsset?.symbol ?? 'Select an asset'}</h2>
+                <p>{selectedChartAsset ? `Market price: ${formatMoney(selectedChartAsset.price)}` : 'Choose a coin above.'}</p>
+                </div>
+              </div>
+              <form className="inline-trade-form" onSubmit={handleTradeSubmit}>
+                <div className="segmented-control">
+                  <button className={tradeType === 'BUY' ? 'active' : ''} type="button" onClick={() => setTradeType('BUY')}>Buy</button>
+                  <button className={tradeType === 'SELL' ? 'active' : ''} disabled={!canSellSelected} type="button" onClick={() => setTradeType('SELL')}>Sell</button>
+                </div>
+                <label>
+                  Quantity
+                  <input min="0.0000000001" onChange={(event) => setQuantity(event.target.value)} placeholder="0.00" required step="0.0000000001" type="number" value={quantity}/>
+                </label>
+                <div className="estimate">
+                  Estimated total
+                  <strong>{formatMoney(Number(quantity || 0) * Number(selectedChartAsset?.price ?? 0))}</strong>
+                </div>
+                {!session && <div className="trade-login-note">Login to place an order.</div>}
+                <button disabled={loading.trade || !session || !selectedChartAsset} type="submit">
+                  {loading.trade ? 'Executing' : `${tradeType === 'BUY' ? 'Buy' : 'Sell'} ${selectedChartAsset?.symbol ?? ''}`}
+                </button>
+              </form>
+            </aside>
           </section>
 
           <section className="panel">
@@ -573,59 +598,6 @@ function App() {
         </section>
       </section>
 
-      {selectedAsset && (
-        <div className="modal-backdrop">
-          <form className="trade-modal" onSubmit={handleTradeSubmit}>
-            <div className="panel-header">
-              <div>
-                <h2>
-                  {tradeType} {selectedAsset.symbol}
-                </h2>
-                <p>Market price: {formatMoney(selectedAsset.price)}</p>
-              </div>
-              <button className="icon-button" type="button" onClick={() => setSelectedAsset(null)}>
-                X
-              </button>
-            </div>
-            <div className="segmented-control">
-              <button
-                className={tradeType === 'BUY' ? 'active' : ''}
-                type="button"
-                onClick={() => setTradeType('BUY')}
-              >
-                Buy
-              </button>
-              <button
-                className={tradeType === 'SELL' ? 'active' : ''}
-                disabled={!canSellSelected}
-                type="button"
-                onClick={() => setTradeType('SELL')}
-              >
-                Sell
-              </button>
-            </div>
-            <label>
-              Quantity
-              <input
-                autoFocus
-                min="0.0000000001"
-                onChange={(event) => setQuantity(event.target.value)}
-                required
-                step="0.0000000001"
-                type="number"
-                value={quantity}
-              />
-            </label>
-            <div className="estimate">
-              Estimated total
-              <strong>{formatMoney(Number(quantity || 0) * Number(selectedAsset.price))}</strong>
-            </div>
-            <button disabled={loading.trade} type="submit">
-              {loading.trade ? 'Executing' : 'Execute order'}
-            </button>
-          </form>
-        </div>
-      )}
     </main>
   )
 }
@@ -721,7 +693,7 @@ function Portfolio({ portfolio, prices }) {
         ) : (
           portfolio.holdings.map((holding) => (
             <div className="holding-row" key={holding.symbol}>
-              <span>{holding.symbol}</span>
+              <span className="holding-asset"><CoinIcon size="small" symbol={holding.symbol}/>{holding.symbol}</span>
               <strong>{formatCrypto(holding.quantity)}</strong>
             </div>
           ))

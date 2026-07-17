@@ -344,6 +344,32 @@ label {
   gap: 10px;
 }
 
+.asset-identity,
+.selected-asset-heading,
+.holding-asset {
+  align-items: center;
+  display: flex;
+  gap: 9px;
+}
+
+.coin-icon {
+  align-items: center;
+  background: #ffffff;
+  border: 1px solid rgba(15, 23, 42, 0.1);
+  border-radius: 50%;
+  display: inline-flex;
+  flex: 0 0 auto;
+  height: 30px;
+  justify-content: center;
+  overflow: hidden;
+  width: 30px;
+}
+
+.coin-icon.small { height: 24px; width: 24px; }
+.coin-icon.large { height: 42px; width: 42px; }
+.coin-icon img { height: 100%; object-fit: cover; width: 100%; }
+.coin-icon > span { color: #334155; font-size: 10px; font-weight: 900; }
+
 .asset-card strong {
   color: #111827;
   font-size: 14px;
@@ -391,9 +417,11 @@ label {
   grid-template-columns: 1fr 1fr;
 }
 
-.chart-panel {
-  display: grid;
-}
+.trade-workspace { display: grid; gap: 20px; grid-template-columns: minmax(0, 1fr) 290px; }
+.chart-panel { display: grid; min-width: 0; }
+.inline-trade-panel { align-content: start; background: #f8fafc; border: 1px solid #d9e0ea; border-radius: 8px; display: grid; gap: 18px; padding: 16px; }
+.inline-trade-form { display: grid; gap: 14px; }
+.trade-login-note { background: #fffbeb; border: 1px solid #fde68a; border-radius: 6px; color: #92400e; font-size: 12px; padding: 10px; }
 
 .price-chart {
   height: 260px;
@@ -550,6 +578,8 @@ label {
     display: grid;
     grid-template-columns: 1fr 1fr;
   }
+
+  .trade-workspace { grid-template-columns: 1fr; }
 
   .portfolio-chart-block {
     grid-template-columns: 1fr;
