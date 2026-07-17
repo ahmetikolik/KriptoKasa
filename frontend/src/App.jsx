@@ -24,6 +24,12 @@ const emptyAuth = {
   password: '',
 }
 
+const emptyPasswordForm = {
+  currentPassword: '',
+  newPassword: '',
+  confirmPassword: '',
+}
+
 const formatMoney = (value) =>
   Number(value ?? 0).toLocaleString('en-US', {
     style: 'currency',
@@ -192,6 +198,10 @@ function App() {
   const [message, setMessage] = useState('')
   const [error, setError] = useState('')
   const [refreshCountdown, setRefreshCountdown] = useState(15)
+  const [settingsOpen, setSettingsOpen] = useState(false)
+  const [passwordForm, setPasswordForm] = useState(emptyPasswordForm)
+  const [deleteConfirmation, setDeleteConfirmation] = useState('')
+  const [settingsFeedback, setSettingsFeedback] = useState('')
   const tradeWorkspaceRef = useRef(null)
 
   const token = session?.token
@@ -364,8 +374,41 @@ function App() {
   function signOut() {
     setSession(null)
     setPortfolio(null)
+    setSettingsOpen(false)
+    setPasswordForm(emptyPasswordForm)
+    setDeleteConfirmation('')
+    setSettingsFeedback('')
     localStorage.removeItem('cryptopal-session')
     setMessage('Signed out.')
+  }
+
+  function handlePasswordSettingsSubmit(event) {
+    event.preventDefault()
+    if (passwordForm.currentPassword.length < 6) {
+      setSettingsFeedback('Current password must be at least 6 characters.')
+      return
+    }
+    if (passwordForm.newPassword.length < 8) {
+      setSettingsFeedback('New password must be at least 8 characters.')
+      return
+    }
+    if (passwordForm.newPassword === passwordForm.currentPassword) {
+      setSettingsFeedback('New password must be different from the current password.')
+      return
+    }
+    if (passwordForm.newPassword !== passwordForm.confirmPassword) {
+      setSettingsFeedback('New password confirmation does not match.')
+      return
+    }
+    setSettingsFeedback('Password form is ready. Backend connection will be added in the account API stage.')
+  }
+
+  function handleDeleteAccount() {
+    if (deleteConfirmation !== session?.email) {
+      setSettingsFeedback('Enter your full email address to confirm account deletion.')
+      return
+    }
+    setSettingsFeedback('Delete confirmation is ready. Backend connection will be added in the account API stage.')
   }
 
   function selectAsset(asset) {
@@ -406,13 +449,53 @@ function App() {
 
             {session ? (
               <div className="session-box">
-                <div>
+                <div className="session-identity">
                   <span className="label">Signed in as</span>
                   <strong>{session.email}</strong>
                 </div>
-                <button type="button" onClick={signOut}>
-                  Sign out
-                </button>
+                <div className="session-actions">
+                  <button className="ghost-button" type="button" aria-expanded={settingsOpen} aria-controls="account-settings" onClick={() => { setSettingsOpen((current) => !current); setSettingsFeedback('') }}>
+                    {settingsOpen ? 'Close settings' : 'Account settings'}
+                  </button>
+                  <button type="button" onClick={signOut}>Sign out</button>
+                </div>
+
+                {settingsOpen && (
+                  <div className="account-settings" id="account-settings">
+                    <div className="settings-heading">
+                      <span className="label">Security</span>
+                      <h3>Change password</h3>
+                      <p>Use at least 8 characters for your new password.</p>
+                    </div>
+                    <form className="settings-form" onSubmit={handlePasswordSettingsSubmit}>
+                      <label>
+                        Current password
+                        <input autoComplete="current-password" minLength={6} onChange={(event) => setPasswordForm((current) => ({ ...current, currentPassword: event.target.value }))} required type="password" value={passwordForm.currentPassword}/>
+                      </label>
+                      <label>
+                        New password
+                        <input autoComplete="new-password" minLength={8} onChange={(event) => setPasswordForm((current) => ({ ...current, newPassword: event.target.value }))} required type="password" value={passwordForm.newPassword}/>
+                      </label>
+                      <label>
+                        Confirm new password
+                        <input autoComplete="new-password" minLength={8} onChange={(event) => setPasswordForm((current) => ({ ...current, confirmPassword: event.target.value }))} required type="password" value={passwordForm.confirmPassword}/>
+                      </label>
+                      <button type="submit">Validate password change</button>
+                    </form>
+
+                    <div className="danger-zone">
+                      <span className="label">Danger zone</span>
+                      <h3>Delete account</h3>
+                      <p>This will permanently remove the account, portfolio and order history after backend confirmation.</p>
+                      <label>
+                        Type {session.email} to confirm
+                        <input onChange={(event) => setDeleteConfirmation(event.target.value)} placeholder={session.email} type="email" value={deleteConfirmation}/>
+                      </label>
+                      <button className="danger-button" disabled={deleteConfirmation !== session.email} onClick={handleDeleteAccount} type="button">Validate account deletion</button>
+                    </div>
+                    {settingsFeedback && <div className="settings-feedback" role="status">{settingsFeedback}</div>}
+                  </div>
+                )}
               </div>
             ) : (
               <form className="stack-form" onSubmit={handleAuthSubmit}>
