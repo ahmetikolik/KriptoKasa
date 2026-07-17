@@ -169,10 +169,12 @@ function App() {
   })
   const [message, setMessage] = useState('')
   const [error, setError] = useState('')
+  const [refreshCountdown, setRefreshCountdown] = useState(15)
 
   const token = session?.token
 
   const loadPrices = useCallback(async () => {
+    setRefreshCountdown(15)
     setLoading((current) => ({ ...current, prices: true }))
     try {
       const data = await getPrices()
@@ -220,8 +222,14 @@ function App() {
 
   useEffect(() => {
     loadPrices()
-    const intervalId = window.setInterval(loadPrices, 15000)
-    return () => window.clearInterval(intervalId)
+    const refreshIntervalId = window.setInterval(loadPrices, 15000)
+    const countdownIntervalId = window.setInterval(() => {
+      setRefreshCountdown((current) => (current <= 1 ? 15 : current - 1))
+    }, 1000)
+    return () => {
+      window.clearInterval(refreshIntervalId)
+      window.clearInterval(countdownIntervalId)
+    }
   }, [loadPrices])
 
   useEffect(() => {
@@ -361,7 +369,7 @@ function App() {
           <h1>Trading Console</h1>
         </div>
         <button className="refresh-button" type="button" onClick={loadPrices}>
-          {loading.prices ? 'Refreshing' : 'Refresh'}
+          {loading.prices ? 'Refreshing' : `Refresh (${refreshCountdown}s)`}
         </button>
       </header>
 
