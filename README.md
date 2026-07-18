@@ -1,16 +1,19 @@
-# CryptoPal
+# CryptoVault
 
-CryptoPal is a full-stack cryptocurrency trading dashboard built with a Spring Boot backend, React single-page frontend, PostgreSQL persistence, Redis caching, live market data, Gemini AI insights, and Docker-based deployment.
+CryptoVault is a full-stack cryptocurrency trading dashboard built with a Spring Boot backend, React single-page frontend, PostgreSQL persistence, Redis caching, live market data, Gemini AI insights, account settings, and Docker-based deployment.
 
-The application lets users register, log in, view live crypto prices, inspect their portfolio, execute buy/sell orders, and ask an AI assistant questions about their portfolio context.
+The app lets users register, log in, view live crypto prices, inspect their wallet, execute buy/sell orders, open coin charts, manage account details, and use a draggable AI market chat.
 
-## Application Screenshot
+## Current UI
 
-The trading console shows the authenticated session, cash balance, portfolio allocation donut chart, live market cards, 24h price movement, held quantities, and selected asset state in a single SPA dashboard.
-
-![CryptoPal Trading Console Screenshot](docs/images/trading-console-screenshot.png)
-
-![CryptoPal Architecture](docs/images/architecture.svg)
+- Binance-style market overview redesigned with a blue CryptoVault theme.
+- Default preferences are dark mode, Turkish language, and USD currency.
+- Language options: Turkish, English, German, French.
+- Currency options: USD, TRY, EUR.
+- Favorites remain pinned in the right rail.
+- Wallet has its own page section and can open trade actions directly.
+- AI assistant is a fixed bottom-right chat widget and can be dragged around the screen.
+- Coin rows open a detail modal with chart, buy/sell controls, quantity, currency, and estimated total.
 
 ## Project Structure
 
@@ -27,13 +30,15 @@ KriptoKasa/
 
 | Layer | Technology |
 | --- | --- |
-| Frontend | React, Vite, Nginx |
+| Frontend | React, Vite, Recharts, Nginx |
 | Backend | Java 17, Spring Boot 4 |
 | Database | PostgreSQL |
 | Cache | Redis |
 | Migration | Flyway |
 | Market Data | CoinGecko public API |
+| FX Rates | Frankfurter API |
 | AI | Google Gemini API |
+| API Docs | springdoc OpenAPI / Swagger UI |
 | Deployment | Docker Compose |
 
 ## Core Features
@@ -41,33 +46,31 @@ KriptoKasa/
 - User registration and login
 - BCrypt password hashing
 - Redis-backed session tokens
+- Account settings: display name, phone number, password update, account deletion
 - Random initial wallet balance on registration
 - Live crypto prices with 24h change
-- Clickable asset cards with price history chart
-- Portfolio holdings and recent orders
-- Buy/sell trading modal
+- 5-second refresh for market prices, FX rates, portfolio, and selected chart history
+- Current market-price trading, no delayed execution price
+- Favorite coins in the right rail
+- Dedicated wallet section with cash balance, holdings, and quick trade buttons
+- Coin detail modal with price history chart and buy/sell form
 - Transactional trading logic
-- Portfolio donut chart and profit/loss summary
-- Gemini-powered AI portfolio insights
+- Recent orders
+- Draggable Gemini AI market assistant chat
 - Production deployment behind Nginx
+- Swagger UI and OpenAPI JSON exposed through the frontend proxy
 
 ## How The System Works
 
 The browser never talks directly to PostgreSQL, Redis, or CoinGecko. It only talks to the backend through HTTP endpoints.
 
 ```text
-React UI -> /api/... -> Spring Boot -> Redis/PostgreSQL/CoinGecko
+React UI -> /api/... -> Spring Boot -> Redis/PostgreSQL/CoinGecko/Gemini
 ```
 
-In production, Nginx serves the React app and proxies API requests to the backend container.
+In production, Nginx serves the React app and proxies API and Swagger requests to the backend container.
 
-![Production Deployment](docs/images/deployment.svg)
-
-## Redis vs PostgreSQL
-
-CryptoPal uses Redis and PostgreSQL for different responsibilities.
-
-![Storage Model](docs/images/storage-model.svg)
+## Data Storage
 
 ### Redis
 
@@ -76,6 +79,7 @@ Redis stores fast, temporary data:
 - Session tokens
 - Latest market prices
 - Latest 24h market change values
+- Latest market update timestamps
 
 Example:
 
@@ -83,13 +87,15 @@ Example:
 session:{token} -> userId
 price:BTC -> latest BTC price
 price-change-percent:BTC -> 24h change
+price-updated-at:BTC -> timestamp
 ```
 
 ### PostgreSQL
 
-PostgreSQL stores permanent financial data:
+PostgreSQL stores permanent financial and account data:
 
 - Users
+- Display name and phone number
 - Wallet balances
 - Crypto holdings
 - Trade transactions
@@ -100,8 +106,6 @@ Financial state is never stored permanently in Redis.
 ## Authentication Flow
 
 When a user registers or logs in, the backend creates a session token and stores it in Redis.
-
-![Authentication Flow](docs/images/auth-flow.svg)
 
 Register/login response example:
 
@@ -126,15 +130,13 @@ The backend checks Redis:
 session:generated-session-token -> 1
 ```
 
-Then it uses the resolved `userId` to load portfolio or execute trades.
+Then it uses the resolved `userId` to load account, portfolio, AI context, or execute trades.
 
 ## Market And Trading Flow
 
-CryptoPal periodically fetches market data from CoinGecko, writes the latest values into Redis, and stores snapshots in PostgreSQL.
+CryptoVault periodically fetches market data from CoinGecko, writes the latest values into Redis, and stores snapshots in PostgreSQL for chart history.
 
-![Market And Trading Flow](docs/images/market-trade-flow.svg)
-
-Trading uses strict transactional logic:
+Trading uses the latest cached market price through `MarketService.getLatestPrice(symbol)`.
 
 ### Buy
 
@@ -158,13 +160,11 @@ Commit all together
 
 If one step fails, the full transaction rolls back.
 
-## Gemini AI Insights
+## Gemini AI Chat
 
-The AI panel is a protected workflow. The frontend sends the user's question with the session token, the backend resolves the user from Redis, reads portfolio context from PostgreSQL, adds the latest cached market prices, and sends one generated prompt to Gemini.
+The AI chat is a protected workflow. The frontend sends the user's question with the session token, the backend resolves the user from Redis, reads portfolio context from PostgreSQL, adds the latest cached market prices, and sends one generated prompt to Gemini.
 
-![Gemini AI Insights Flow](docs/images/ai-insights-flow.svg)
-
-The Gemini call is read-only from the app's perspective. It can explain the current portfolio context, but it does not write balances, create orders, or bypass the trading service.
+The Gemini call is read-only from the app's perspective. It can explain current portfolio context, but it does not write balances, create orders, or bypass the trading service.
 
 ## API Endpoints
 
@@ -172,11 +172,17 @@ The Gemini call is read-only from the app's perspective. It can explain the curr
 | --- | --- | --- |
 | POST | `/api/auth/register` | Create user and wallet |
 | POST | `/api/auth/login` | Login and receive token |
+| GET | `/api/account` | Get account profile |
+| PATCH | `/api/account` | Update display name and phone number |
+| POST | `/api/account/password` | Change password |
+| DELETE | `/api/account` | Delete account and revoke session |
 | GET | `/api/market/prices` | Get latest cached market prices |
 | GET | `/api/market/history/{symbol}` | Get recent price snapshots for one asset |
 | GET | `/api/portfolio` | Get wallet, holdings, and recent orders |
 | POST | `/api/trades` | Execute buy/sell order |
 | POST | `/api/ai/query` | Ask Gemini using the authenticated portfolio context |
+| GET | `/v3/api-docs` | OpenAPI JSON |
+| GET | `/swagger-ui.html` | Swagger UI |
 
 ## Local Development
 
@@ -231,32 +237,32 @@ Check containers:
 docker compose -f docker-compose.prod.yml ps
 ```
 
-Open the VM public IP:
+Open locally:
 
 ```text
-http://34.10.14.229
+http://localhost
 ```
 
-More details are in [DEPLOY.md](DEPLOY.md).
+Swagger:
 
-## Useful SSH Commands
-
-See registered users:
-
-```bash
-docker exec -it cryptopal-postgres psql -U cryptopal -d cryptopal -c "select id, email, created_at from app_users order by id desc;"
+```text
+http://localhost/swagger-ui.html
 ```
 
-See wallet balances:
+More deployment details are in [DEPLOY.md](DEPLOY.md).
 
-```bash
-docker exec -it cryptopal-postgres psql -U cryptopal -d cryptopal -c "select u.id, u.email, w.fiat_balance from app_users u join wallets w on w.user_id = u.id order by u.id desc;"
-```
+## Useful Commands
 
 See market API:
 
 ```bash
 curl http://localhost/api/market/prices
+```
+
+See OpenAPI JSON:
+
+```bash
+curl http://localhost/v3/api-docs
 ```
 
 See backend logs:
@@ -265,20 +271,55 @@ See backend logs:
 docker compose -f docker-compose.prod.yml logs -f backend
 ```
 
+See registered users:
+
+```bash
+docker exec -it cryptopal-postgres psql -U cryptopal -d cryptopal -c "select id, email, display_name, phone_number, created_at from app_users order by id desc;"
+```
+
+See wallet balances:
+
+```bash
+docker exec -it cryptopal-postgres psql -U cryptopal -d cryptopal -c "select u.id, u.email, w.fiat_balance from app_users u join wallets w on w.user_id = u.id order by u.id desc;"
+```
+
+## Verification
+
+Latest local verification:
+
+```bash
+cd frontend
+npm run build
+
+cd ../Kasa
+./mvnw test
+
+cd ..
+docker compose -f docker-compose.prod.yml up -d --build backend frontend
+curl http://localhost/api/market/prices
+```
+
 ## Current Status
 
 Completed:
 
 - Backend core modules
-- PostgreSQL schema migration
+- PostgreSQL schema migrations
 - Redis session and price cache
 - Live market prices
-- Trading operations
+- 5-second market refresh configuration
+- Current-price trading operations
 - React SPA frontend
+- Dark/light theme
+- Turkish, English, German, French language options
+- USD, TRY, EUR currency options
+- Dedicated wallet trading section
+- Account settings and account deletion
+- Draggable Gemini AI chat
 - Docker production deployment
-- Google Gemini AI insights module
+- Swagger/OpenAPI documentation
 
 Pending:
 
-- Swagger/OpenAPI documentation
 - More advanced realized/unrealized PnL calculations
+- Frontend bundle code-splitting if the Vite chunk-size warning needs to be removed

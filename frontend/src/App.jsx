@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
+import { useCallback, useEffect, useMemo, useState } from 'react'
 import {
   CartesianGrid,
   Line,
@@ -9,46 +9,375 @@ import {
   YAxis,
 } from 'recharts'
 import {
+  changePassword,
+  deleteAccount,
   executeTrade,
+  getAccount,
   getPortfolio,
   getPriceHistory,
   getPrices,
   login,
   queryAi,
   register,
+  updateAccount,
 } from './api/client'
 import './App.css'
 
-const emptyAuth = {
-  email: '',
-  password: '',
+const emptyAuth = { email: '', password: '' }
+const emptyPasswordForm = { currentPassword: '', newPassword: '', confirmPassword: '' }
+const emptyDeleteForm = { emailConfirmation: '', password: '' }
+
+const currencyMeta = {
+  TRY: { locale: 'tr-TR', label: 'TL' },
+  USD: { locale: 'en-US', label: 'USD' },
+  EUR: { locale: 'de-DE', label: 'EUR' },
 }
 
-const emptyPasswordForm = {
-  currentPassword: '',
-  newPassword: '',
-  confirmPassword: '',
+const fallbackRates = { USD: 1, TRY: 33, EUR: 0.92 }
+const languageOptions = ['tr', 'en', 'de', 'fr']
+const currencyOptions = ['TRY', 'USD', 'EUR']
+const stableSymbols = new Set(['USDT', 'USDC'])
+const majorSymbols = new Set(['BTC', 'ETH', 'BNB', 'SOL', 'XRP'])
+
+const copy = {
+  tr: {
+    brand: 'CryptoVault',
+    markets: 'Piyasalar',
+    trade: 'Al-Sat',
+    wallet: 'Cüzdan',
+    login: 'Giriş Yap',
+    create: 'Hesap Oluştur',
+    settings: 'Hesap Ayarları',
+    overview: 'Piyasa Genel Bakış',
+    subtitle: 'Canlı coin verileri, favoriler, cüzdan işlemleri ve yapay zeka tek ekranda.',
+    all: 'Tümü',
+    portfolio: 'Portföyüm',
+    gainers: 'Kazananlar',
+    stable: 'Stable Coin',
+    majors: 'Büyük Coinler',
+    favorites: 'Favoriler',
+    noFavorites: 'Favori coin eklemek için yıldızı kullan.',
+    search: 'Coin ara',
+    coin: 'Coin',
+    price: 'Fiyat',
+    change: '24s Değişim',
+    updated: 'Piyasa Zamanı',
+    delayed: 'Piyasa Fiyatı',
+    balance: 'Cüzdan',
+    action: 'İşlem',
+    buy: 'Satın Al',
+    sell: 'Sat',
+    quantity: 'Miktar',
+    estimate: 'Tahmini Toplam',
+    delayedNote: 'Emirler güncel piyasa fiyatıyla çalışır.',
+    account: 'Hesap',
+    email: 'E-posta',
+    password: 'Şifre',
+    signedIn: 'Oturum',
+    signOut: 'Çıkış Yap',
+    preferences: 'Tercihler',
+    language: 'Dil',
+    currency: 'Para Birimi',
+    theme: 'Tema',
+    light: 'Aydınlık',
+    dark: 'Karanlık',
+    displayName: 'Ad Soyad',
+    phone: 'Telefon No',
+    updateProfile: 'Profili Güncelle',
+    security: 'Güvenlik',
+    currentPassword: 'Mevcut şifre',
+    newPassword: 'Yeni şifre',
+    confirmPassword: 'Yeni şifre tekrar',
+    changePassword: 'Şifreyi Güncelle',
+    deleteAccount: 'Hesabı Sil',
+    confirmDelete: 'Silmek için e-postanı ve şifreni gir.',
+    recentOrders: 'Son İşlemler',
+    noOrders: 'Henüz işlem yok.',
+    noHoldings: 'Coin bakiyen yok.',
+    loginToTrade: 'İşlem yapmak için giriş yap.',
+    authSuccess: 'Oturum açıldı.',
+    registerSuccess: 'Hesap oluşturuldu.',
+    signedOut: 'Çıkış yapıldı.',
+    profileUpdated: 'Hesap bilgileri güncellendi.',
+    passwordUpdated: 'Şifre güncellendi.',
+    accountDeleted: 'Hesap silindi.',
+    executed: 'emri gerçekleşti',
+    loading: 'Yükleniyor',
+    refresh: 'Verileri Yenile',
+    chart: 'Fiyat Grafiği',
+    execute: 'Emri Gerçekleştir',
+    ai: 'AI Piyasa Asistanı',
+    aiPlaceholder: 'Portföyüm ve son piyasa hareketleri hakkında yorum yap.',
+    askAi: 'AI ile Analiz Et',
+    aiLogin: 'AI analizi için giriş yap.',
+    rateSource: 'Kur kaynağı',
+    details: 'Detay',
+    openChat: 'AI Sohbet',
+    close: 'Kapat',
+    dragChat: 'Taşımak için sürükle',
+    holdings: 'Varlıklarım',
+    cashBalance: 'Nakit Bakiye',
+  },
+  en: {
+    brand: 'CryptoVault',
+    markets: 'Markets',
+    trade: 'Trade',
+    wallet: 'Wallet',
+    login: 'Login',
+    create: 'Create Account',
+    settings: 'Account Settings',
+    overview: 'Market Overview',
+    subtitle: 'Live coin data, favorites, wallet actions, and AI in one screen.',
+    all: 'All',
+    portfolio: 'Portfolio',
+    gainers: 'Gainers',
+    stable: 'Stable Coin',
+    majors: 'Majors',
+    favorites: 'Favorites',
+    noFavorites: 'Use the star to add favorites.',
+    search: 'Search coin',
+    coin: 'Coin',
+    price: 'Price',
+    change: '24h Change',
+    updated: 'Market Time',
+    delayed: 'Market Price',
+    balance: 'Wallet',
+    action: 'Action',
+    buy: 'Buy',
+    sell: 'Sell',
+    quantity: 'Quantity',
+    estimate: 'Estimated Total',
+    delayedNote: 'Orders execute with the current market price.',
+    account: 'Account',
+    email: 'Email',
+    password: 'Password',
+    signedIn: 'Session',
+    signOut: 'Sign Out',
+    preferences: 'Preferences',
+    language: 'Language',
+    currency: 'Currency',
+    theme: 'Theme',
+    light: 'Light',
+    dark: 'Dark',
+    displayName: 'Full Name',
+    phone: 'Phone',
+    updateProfile: 'Update Profile',
+    security: 'Security',
+    currentPassword: 'Current password',
+    newPassword: 'New password',
+    confirmPassword: 'Confirm password',
+    changePassword: 'Change Password',
+    deleteAccount: 'Delete Account',
+    confirmDelete: 'Enter your email and password to delete.',
+    recentOrders: 'Recent Orders',
+    noOrders: 'No orders yet.',
+    noHoldings: 'No coin balance.',
+    loginToTrade: 'Login to trade.',
+    authSuccess: 'Signed in.',
+    registerSuccess: 'Account created.',
+    signedOut: 'Signed out.',
+    profileUpdated: 'Account updated.',
+    passwordUpdated: 'Password updated.',
+    accountDeleted: 'Account deleted.',
+    executed: 'order executed',
+    loading: 'Loading',
+    refresh: 'Refresh Data',
+    chart: 'Price Chart',
+    execute: 'Execute Order',
+    ai: 'AI Market Assistant',
+    aiPlaceholder: 'Analyze my portfolio and recent market movement.',
+    askAi: 'Ask AI',
+    aiLogin: 'Login to use AI analysis.',
+    rateSource: 'Rate source',
+    details: 'Details',
+    openChat: 'AI Chat',
+    close: 'Close',
+    dragChat: 'Drag to move',
+    holdings: 'Holdings',
+    cashBalance: 'Cash Balance',
+  },
+  de: {
+    brand: 'CryptoVault',
+    markets: 'Märkte',
+    trade: 'Handeln',
+    wallet: 'Wallet',
+    login: 'Einloggen',
+    create: 'Konto Erstellen',
+    settings: 'Kontoeinstellungen',
+    overview: 'Marktübersicht',
+    subtitle: 'Live-Coin-Daten, Favoriten, Wallet-Aktionen und KI auf einem Bildschirm.',
+    all: 'Alle',
+    portfolio: 'Portfolio',
+    gainers: 'Gewinner',
+    stable: 'Stable Coin',
+    majors: 'Große Coins',
+    favorites: 'Favoriten',
+    noFavorites: 'Mit dem Stern Favoriten hinzufügen.',
+    search: 'Coin suchen',
+    coin: 'Coin',
+    price: 'Preis',
+    change: '24h Änderung',
+    updated: 'Marktzeit',
+    delayed: 'Marktpreis',
+    balance: 'Wallet',
+    action: 'Aktion',
+    buy: 'Kaufen',
+    sell: 'Verkaufen',
+    quantity: 'Menge',
+    estimate: 'Gesamtwert',
+    delayedNote: 'Orders nutzen den aktuellen Marktpreis.',
+    account: 'Konto',
+    email: 'E-Mail',
+    password: 'Passwort',
+    signedIn: 'Sitzung',
+    signOut: 'Abmelden',
+    preferences: 'Einstellungen',
+    language: 'Sprache',
+    currency: 'Währung',
+    theme: 'Theme',
+    light: 'Hell',
+    dark: 'Dunkel',
+    displayName: 'Name',
+    phone: 'Telefon',
+    updateProfile: 'Profil Aktualisieren',
+    security: 'Sicherheit',
+    currentPassword: 'Aktuelles Passwort',
+    newPassword: 'Neues Passwort',
+    confirmPassword: 'Bestätigen',
+    changePassword: 'Passwort Ändern',
+    deleteAccount: 'Konto Löschen',
+    confirmDelete: 'E-Mail und Passwort zum Löschen eingeben.',
+    recentOrders: 'Letzte Orders',
+    noOrders: 'Noch keine Orders.',
+    noHoldings: 'Kein Coin-Guthaben.',
+    loginToTrade: 'Zum Handeln einloggen.',
+    authSuccess: 'Eingeloggt.',
+    registerSuccess: 'Konto erstellt.',
+    signedOut: 'Abgemeldet.',
+    profileUpdated: 'Konto aktualisiert.',
+    passwordUpdated: 'Passwort aktualisiert.',
+    accountDeleted: 'Konto gelöscht.',
+    executed: 'Order ausgeführt',
+    loading: 'Lädt',
+    refresh: 'Daten Aktualisieren',
+    chart: 'Preischart',
+    execute: 'Order Ausführen',
+    ai: 'KI-Marktassistent',
+    aiPlaceholder: 'Analysiere mein Portfolio und den Markt.',
+    askAi: 'KI Fragen',
+    aiLogin: 'Zum KI-Chat einloggen.',
+    rateSource: 'Kursquelle',
+    details: 'Details',
+    openChat: 'KI Chat',
+    close: 'Schließen',
+    dragChat: 'Zum Verschieben ziehen',
+    holdings: 'Bestände',
+    cashBalance: 'Barbestand',
+  },
+  fr: {
+    brand: 'CryptoVault',
+    markets: 'Marchés',
+    trade: 'Trader',
+    wallet: 'Portefeuille',
+    login: 'Connexion',
+    create: 'Créer un Compte',
+    settings: 'Paramètres',
+    overview: 'Vue du Marché',
+    subtitle: 'Données crypto, favoris, actions portefeuille et IA sur un seul écran.',
+    all: 'Tous',
+    portfolio: 'Portefeuille',
+    gainers: 'Hausses',
+    stable: 'Stable Coin',
+    majors: 'Grands Coins',
+    favorites: 'Favoris',
+    noFavorites: 'Utilise l’étoile pour ajouter des favoris.',
+    search: 'Rechercher',
+    coin: 'Coin',
+    price: 'Prix',
+    change: 'Variation 24h',
+    updated: 'Heure Marché',
+    delayed: 'Prix Marché',
+    balance: 'Solde',
+    action: 'Action',
+    buy: 'Acheter',
+    sell: 'Vendre',
+    quantity: 'Quantité',
+    estimate: 'Total Estimé',
+    delayedNote: 'Les ordres utilisent le prix actuel du marché.',
+    account: 'Compte',
+    email: 'E-mail',
+    password: 'Mot de passe',
+    signedIn: 'Session',
+    signOut: 'Déconnexion',
+    preferences: 'Préférences',
+    language: 'Langue',
+    currency: 'Devise',
+    theme: 'Thème',
+    light: 'Clair',
+    dark: 'Sombre',
+    displayName: 'Nom',
+    phone: 'Téléphone',
+    updateProfile: 'Mettre à Jour',
+    security: 'Sécurité',
+    currentPassword: 'Mot de passe actuel',
+    newPassword: 'Nouveau mot de passe',
+    confirmPassword: 'Confirmer',
+    changePassword: 'Changer le Mot de Passe',
+    deleteAccount: 'Supprimer le Compte',
+    confirmDelete: 'Entre e-mail et mot de passe pour supprimer.',
+    recentOrders: 'Ordres Récents',
+    noOrders: 'Aucun ordre.',
+    noHoldings: 'Aucun solde crypto.',
+    loginToTrade: 'Connecte-toi pour trader.',
+    authSuccess: 'Connecté.',
+    registerSuccess: 'Compte créé.',
+    signedOut: 'Déconnecté.',
+    profileUpdated: 'Compte mis à jour.',
+    passwordUpdated: 'Mot de passe mis à jour.',
+    accountDeleted: 'Compte supprimé.',
+    executed: 'ordre exécuté',
+    loading: 'Chargement',
+    refresh: 'Actualiser',
+    chart: 'Graphique',
+    execute: 'Exécuter',
+    ai: 'Assistant Marché IA',
+    aiPlaceholder: 'Analyse mon portefeuille et le marché récent.',
+    askAi: 'Demander à l’IA',
+    aiLogin: 'Connexion requise pour l’IA.',
+    rateSource: 'Source taux',
+    details: 'Détails',
+    openChat: 'Chat IA',
+    close: 'Fermer',
+    dragChat: 'Glisser pour déplacer',
+    holdings: 'Actifs',
+    cashBalance: 'Solde Cash',
+  },
 }
 
-const formatMoney = (value) =>
-  Number(value ?? 0).toLocaleString('en-US', {
-    style: 'currency',
-    currency: 'USD',
-    maximumFractionDigits: 2,
-  })
-
-const formatCrypto = (value) =>
-  Number(value ?? 0).toLocaleString('en-US', {
-    maximumFractionDigits: 10,
-  })
-
-const formatPercent = (value) => {
-  const number = Number(value ?? 0)
-  const sign = number > 0 ? '+' : ''
-  return `${sign}${number.toFixed(2)}%`
+const coinNames = {
+  ADA: 'Cardano',
+  APT: 'Aptos',
+  ARB: 'Arbitrum',
+  ATOM: 'Cosmos',
+  AVAX: 'Avalanche',
+  BCH: 'Bitcoin Cash',
+  BNB: 'BNB',
+  BTC: 'Bitcoin',
+  DOGE: 'Dogecoin',
+  DOT: 'Polkadot',
+  ETC: 'Ethereum Classic',
+  ETH: 'Ethereum',
+  FIL: 'Filecoin',
+  LINK: 'Chainlink',
+  LTC: 'Litecoin',
+  NEAR: 'NEAR Protocol',
+  SOL: 'Solana',
+  TRX: 'TRON',
+  UNI: 'Uniswap',
+  USDC: 'USD Coin',
+  USDT: 'TetherUS',
+  XRP: 'XRP',
 }
-
-const chartColors = ['#2563eb', '#16a34a', '#f59e0b', '#dc2626', '#7c3aed', '#0891b2']
 
 const coinIconOverrides = {
   APT: 'https://coin-images.coingecko.com/coins/images/26455/large/Aptos-Network-Symbol-Black-RGB-1x.png?1761789140',
@@ -73,149 +402,136 @@ function CoinIcon({ symbol, size = 'medium' }) {
   )
 }
 
+function formatCrypto(value) {
+  return Number(value ?? 0).toLocaleString('tr-TR', { maximumFractionDigits: 10 })
+}
+
+function formatPercent(value) {
+  const number = Number(value ?? 0)
+  const sign = number > 0 ? '+' : ''
+  return `${sign}${number.toFixed(2)}%`
+}
+
+function convertUsd(value, currency, rates) {
+  return Number(value ?? 0) * Number(rates[currency] ?? 1)
+}
+
+function formatMoney(value, currency, rates) {
+  const meta = currencyMeta[currency]
+  return convertUsd(value, currency, rates).toLocaleString(meta.locale, {
+    style: 'currency',
+    currency,
+    maximumFractionDigits: 2,
+  })
+}
+
 function buildPortfolioSummary(portfolio, prices) {
   if (!portfolio) {
-    return {
-      allocations: [],
-      holdingsValue: 0,
-      investedCost: 0,
-      profitLoss: 0,
-      profitLossPercent: 0,
-      totalValue: 0,
-    }
+    return { holdingsValue: 0, totalValue: 0 }
   }
-
   const priceMap = new Map(prices.map((price) => [price.symbol, Number(price.price)]))
-  const cryptoAllocations = portfolio.holdings.map((holding, index) => {
-    const quantity = Number(holding.quantity)
-    const price = priceMap.get(holding.symbol) ?? 0
-    return {
-      color: chartColors[index % chartColors.length],
-      label: holding.symbol,
-      quantity,
-      value: quantity * price,
-    }
-  })
-
-  const holdingsValue = cryptoAllocations.reduce((total, item) => total + item.value, 0)
-  const totalValue = Number(portfolio.fiatBalance ?? 0) + holdingsValue
-  const cashAllocation = {
-    color: '#64748b',
-    label: 'Cash',
-    quantity: null,
-    value: Number(portfolio.fiatBalance ?? 0),
-  }
-  const allocations = [cashAllocation, ...cryptoAllocations]
-    .filter((item) => item.value > 0)
-    .map((item) => ({
-      ...item,
-      percent: totalValue > 0 ? (item.value / totalValue) * 100 : 0,
-    }))
-
-  const lots = new Map()
-  const orderedTransactions = [...(portfolio.recentTransactions ?? [])].reverse()
-  orderedTransactions.forEach((transaction) => {
-    const symbol = transaction.symbol
-    const current = lots.get(symbol) ?? { cost: 0, quantity: 0 }
-    const quantity = Number(transaction.quantity)
-    const totalAmount = Number(transaction.totalAmount)
-
-    if (transaction.type === 'BUY') {
-      lots.set(symbol, {
-        cost: current.cost + totalAmount,
-        quantity: current.quantity + quantity,
-      })
-      return
-    }
-
-    if (current.quantity <= 0) {
-      return
-    }
-
-    const soldRatio = Math.min(quantity / current.quantity, 1)
-    lots.set(symbol, {
-      cost: current.cost * (1 - soldRatio),
-      quantity: Math.max(current.quantity - quantity, 0),
-    })
-  })
-
-  const investedCost = portfolio.holdings.reduce((total, holding) => {
-    const lot = lots.get(holding.symbol)
-    return total + (lot?.cost ?? 0)
+  const holdingsValue = portfolio.holdings.reduce((total, holding) => {
+    return total + Number(holding.quantity) * Number(priceMap.get(holding.symbol) ?? 0)
   }, 0)
-  const profitLoss = holdingsValue - investedCost
-  const profitLossPercent = investedCost > 0 ? (profitLoss / investedCost) * 100 : 0
-
   return {
-    allocations,
     holdingsValue,
-    investedCost,
-    profitLoss,
-    profitLossPercent,
-    totalValue,
+    totalValue: Number(portfolio.fiatBalance ?? 0) + holdingsValue,
   }
 }
 
-function buildPieGradient(allocations) {
-  if (allocations.length === 0) {
-    return '#e5e7eb'
+function applyDefaultPreferences() {
+  if (localStorage.getItem('cryptopal-defaults-v5') === '1') {
+    return
   }
-
-  let cursor = 0
-  const slices = allocations.map((allocation) => {
-    const start = cursor
-    const end = cursor + allocation.percent
-    cursor = end
-    return `${allocation.color} ${start}% ${end}%`
-  })
-
-  return `conic-gradient(${slices.join(', ')})`
+  localStorage.setItem('cryptopal-language', 'tr')
+  localStorage.setItem('cryptopal-currency', 'USD')
+  localStorage.setItem('cryptopal-theme', 'dark')
+  localStorage.setItem('cryptopal-defaults-v5', '1')
 }
 
 function App() {
+  applyDefaultPreferences()
+  const [language, setLanguage] = useState(() => localStorage.getItem('cryptopal-language') ?? 'tr')
+  const [currency, setCurrency] = useState(() => localStorage.getItem('cryptopal-currency') ?? 'USD')
+  const [theme, setTheme] = useState(() => localStorage.getItem('cryptopal-theme') ?? 'dark')
+  const [rates, setRates] = useState(fallbackRates)
+  const [activeFilter, setActiveFilter] = useState('all')
+  const [searchTerm, setSearchTerm] = useState('')
   const [authMode, setAuthMode] = useState('login')
   const [authForm, setAuthForm] = useState(emptyAuth)
   const [session, setSession] = useState(() => {
     const stored = localStorage.getItem('cryptopal-session')
     return stored ? JSON.parse(stored) : null
   })
+  const [account, setAccount] = useState(null)
+  const [accountForm, setAccountForm] = useState({ displayName: '', phoneNumber: '' })
+  const [passwordForm, setPasswordForm] = useState(emptyPasswordForm)
+  const [deleteForm, setDeleteForm] = useState(emptyDeleteForm)
   const [prices, setPrices] = useState([])
   const [priceHistory, setPriceHistory] = useState([])
   const [portfolio, setPortfolio] = useState(null)
   const [selectedSymbol, setSelectedSymbol] = useState('')
+  const [assetDialogOpen, setAssetDialogOpen] = useState(false)
   const [tradeType, setTradeType] = useState('BUY')
   const [quantity, setQuantity] = useState('')
+  const [favorites, setFavorites] = useState(() => {
+    const stored = localStorage.getItem('cryptopal-favorites')
+    return stored ? JSON.parse(stored) : ['BTC', 'ETH', 'SOL']
+  })
+  const [settingsOpen, setSettingsOpen] = useState(false)
   const [aiQuestion, setAiQuestion] = useState('')
   const [aiAnswer, setAiAnswer] = useState('')
-  const [loading, setLoading] = useState({
-    ai: false,
-    auth: false,
-    history: false,
-    prices: false,
-    portfolio: false,
-    trade: false,
+  const [aiOpen, setAiOpen] = useState(true)
+  const [aiPosition, setAiPosition] = useState(() => {
+    const stored = localStorage.getItem('cryptopal-ai-position')
+    if (!stored) return { bottom: 24, right: 24 }
+    try {
+      return JSON.parse(stored)
+    } catch {
+      return { bottom: 24, right: 24 }
+    }
   })
   const [message, setMessage] = useState('')
   const [error, setError] = useState('')
-  const [refreshCountdown, setRefreshCountdown] = useState(15)
-  const [settingsOpen, setSettingsOpen] = useState(false)
-  const [passwordForm, setPasswordForm] = useState(emptyPasswordForm)
-  const [deleteConfirmation, setDeleteConfirmation] = useState('')
-  const [settingsFeedback, setSettingsFeedback] = useState('')
-  const tradeWorkspaceRef = useRef(null)
+  const [loading, setLoading] = useState({
+    account: false,
+    ai: false,
+    auth: false,
+    history: false,
+    portfolio: false,
+    prices: false,
+    rates: false,
+    settings: false,
+    trade: false,
+  })
 
+  const t = copy[language] ?? copy.tr
   const token = session?.token
 
   const loadPrices = useCallback(async () => {
-    setRefreshCountdown(15)
     setLoading((current) => ({ ...current, prices: true }))
     try {
-      const data = await getPrices()
-      setPrices(data)
+      setPrices(await getPrices())
     } catch (requestError) {
       setError(requestError.message)
     } finally {
       setLoading((current) => ({ ...current, prices: false }))
+    }
+  }, [])
+
+  const loadRates = useCallback(async () => {
+    setLoading((current) => ({ ...current, rates: true }))
+    try {
+      const response = await fetch('https://api.frankfurter.app/latest?from=USD&to=TRY,EUR')
+      if (!response.ok) {
+        throw new Error('Rate service unavailable')
+      }
+      const data = await response.json()
+      setRates({ USD: 1, TRY: Number(data.rates.TRY), EUR: Number(data.rates.EUR) })
+    } catch {
+      setRates((current) => current)
+    } finally {
+      setLoading((current) => ({ ...current, rates: false }))
     }
   }, [])
 
@@ -224,15 +540,34 @@ function App() {
       setPortfolio(null)
       return
     }
-
     setLoading((current) => ({ ...current, portfolio: true }))
     try {
-      const data = await getPortfolio(token)
-      setPortfolio(data)
+      setPortfolio(await getPortfolio(token))
     } catch (requestError) {
       setError(requestError.message)
     } finally {
       setLoading((current) => ({ ...current, portfolio: false }))
+    }
+  }, [token])
+
+  const loadAccount = useCallback(async () => {
+    if (!token) {
+      setAccount(null)
+      setAccountForm({ displayName: '', phoneNumber: '' })
+      return
+    }
+    setLoading((current) => ({ ...current, account: true }))
+    try {
+      const data = await getAccount(token)
+      setAccount(data)
+      setAccountForm({
+        displayName: data.displayName ?? '',
+        phoneNumber: data.phoneNumber ?? '',
+      })
+    } catch (requestError) {
+      setError(requestError.message)
+    } finally {
+      setLoading((current) => ({ ...current, account: false }))
     }
   }, [token])
 
@@ -241,11 +576,9 @@ function App() {
       setPriceHistory([])
       return
     }
-
     setLoading((current) => ({ ...current, history: true }))
     try {
-      const data = await getPriceHistory(symbol)
-      setPriceHistory(data)
+      setPriceHistory(await getPriceHistory(symbol))
     } catch (requestError) {
       setError(requestError.message)
     } finally {
@@ -255,84 +588,123 @@ function App() {
 
   useEffect(() => {
     loadPrices()
-    const refreshIntervalId = window.setInterval(loadPrices, 15000)
-    const countdownIntervalId = window.setInterval(() => {
-      setRefreshCountdown((current) => (current <= 1 ? 15 : current - 1))
-    }, 1000)
-    return () => {
-      window.clearInterval(refreshIntervalId)
-      window.clearInterval(countdownIntervalId)
-    }
+    const intervalId = window.setInterval(loadPrices, 5_000)
+    return () => window.clearInterval(intervalId)
   }, [loadPrices])
 
   useEffect(() => {
+    loadRates()
+    const intervalId = window.setInterval(loadRates, 5_000)
+    return () => window.clearInterval(intervalId)
+  }, [loadRates])
+
+  useEffect(() => {
     loadPortfolio()
+    const intervalId = window.setInterval(loadPortfolio, 5_000)
+    return () => window.clearInterval(intervalId)
   }, [loadPortfolio])
 
   useEffect(() => {
-    if (!settingsOpen) {
-      return undefined
-    }
-    const previousOverflow = document.body.style.overflow
-    const closeOnEscape = (event) => {
-      if (event.key === 'Escape') {
-        setSettingsOpen(false)
-      }
-    }
-    document.body.style.overflow = 'hidden'
-    window.addEventListener('keydown', closeOnEscape)
-    return () => {
-      document.body.style.overflow = previousOverflow
-      window.removeEventListener('keydown', closeOnEscape)
-    }
-  }, [settingsOpen])
+    loadAccount()
+  }, [loadAccount])
+
+  useEffect(() => {
+    localStorage.setItem('cryptopal-language', language)
+  }, [language])
+
+  useEffect(() => {
+    localStorage.setItem('cryptopal-currency', currency)
+  }, [currency])
+
+  useEffect(() => {
+    localStorage.setItem('cryptopal-theme', theme)
+  }, [theme])
+
+  useEffect(() => {
+    localStorage.setItem('cryptopal-favorites', JSON.stringify(favorites))
+  }, [favorites])
+
+  useEffect(() => {
+    localStorage.setItem('cryptopal-ai-position', JSON.stringify(aiPosition))
+  }, [aiPosition])
 
   useEffect(() => {
     if (!selectedSymbol && prices.length > 0) {
-      setSelectedSymbol(prices[0].symbol)
+      setSelectedSymbol(prices.find((price) => price.symbol === 'BTC')?.symbol ?? prices[0].symbol)
     }
   }, [prices, selectedSymbol])
 
-  const holdingsBySymbol = useMemo(() => {
-    const map = new Map()
-    portfolio?.holdings?.forEach((holding) => {
-      map.set(holding.symbol, Number(holding.quantity))
-    })
-    return map
-  }, [portfolio])
-
-  const selectedChartAsset = useMemo(() => {
-    if (prices.length === 0) {
-      return null
-    }
-    return prices.find((asset) => asset.symbol === selectedSymbol) ?? prices[0]
+  const selectedAsset = useMemo(() => {
+    return prices.find((asset) => asset.symbol === selectedSymbol) ?? prices[0] ?? null
   }, [prices, selectedSymbol])
 
   useEffect(() => {
-    const symbol = selectedChartAsset?.symbol
+    const symbol = selectedAsset?.symbol
     if (!symbol) {
       setPriceHistory([])
       return undefined
     }
-
     loadPriceHistory(symbol)
-    const intervalId = window.setInterval(() => loadPriceHistory(symbol), 15000)
+    const intervalId = window.setInterval(() => loadPriceHistory(symbol), 5_000)
     return () => window.clearInterval(intervalId)
-  }, [loadPriceHistory, selectedChartAsset?.symbol])
+  }, [loadPriceHistory, selectedAsset?.symbol])
+
+  const holdingsBySymbol = useMemo(() => {
+    const map = new Map()
+    portfolio?.holdings?.forEach((holding) => map.set(holding.symbol, Number(holding.quantity)))
+    return map
+  }, [portfolio])
+
+  const filteredPrices = useMemo(() => {
+    const query = searchTerm.trim().toUpperCase()
+    return prices
+      .filter((asset) => {
+        if (activeFilter === 'portfolio' && !holdingsBySymbol.has(asset.symbol)) return false
+        if (activeFilter === 'gainers' && Number(asset.changePercent ?? 0) <= 0) return false
+        if (activeFilter === 'stable' && !stableSymbols.has(asset.symbol)) return false
+        if (activeFilter === 'majors' && !majorSymbols.has(asset.symbol)) return false
+        if (!query) return true
+        return asset.symbol.includes(query) || (coinNames[asset.symbol] ?? '').toUpperCase().includes(query)
+      })
+      .sort((a, b) => {
+        if (activeFilter === 'gainers') return Number(b.changePercent ?? 0) - Number(a.changePercent ?? 0)
+        return a.symbol.localeCompare(b.symbol)
+      })
+  }, [activeFilter, holdingsBySymbol, prices, searchTerm])
+
+  const favoriteAssets = useMemo(() => prices.filter((asset) => favorites.includes(asset.symbol)), [favorites, prices])
+  const executionPrice = Number(selectedAsset?.price ?? 0)
+  const estimateUsd = Number(quantity || 0) * executionPrice
+  const summary = useMemo(() => buildPortfolioSummary(portfolio, prices), [portfolio, prices])
+  const canSellSelected = Number(holdingsBySymbol.get(selectedAsset?.symbol) ?? 0) > 0
+  const walletHoldings = useMemo(() => {
+    return (portfolio?.holdings ?? []).map((holding) => {
+      const asset = prices.find((price) => price.symbol === holding.symbol)
+      return {
+        asset,
+        quantity: Number(holding.quantity),
+        symbol: holding.symbol,
+        valueUsd: Number(holding.quantity) * Number(asset?.price ?? 0),
+      }
+    })
+  }, [portfolio, prices])
+  const quickTradeAssets = favoriteAssets.length > 0 ? favoriteAssets : prices.slice(0, 5)
+  const aiWidgetStyle = aiPosition.left == null
+    ? { bottom: `${aiPosition.bottom ?? 24}px`, right: `${aiPosition.right ?? 24}px` }
+    : { left: `${aiPosition.left}px`, top: `${aiPosition.top}px` }
 
   async function handleAuthSubmit(event) {
     event.preventDefault()
     setError('')
     setMessage('')
     setLoading((current) => ({ ...current, auth: true }))
-
     try {
       const action = authMode === 'login' ? login : register
       const data = await action(authForm)
       setSession(data)
       localStorage.setItem('cryptopal-session', JSON.stringify(data))
-      setMessage(authMode === 'login' ? 'Signed in successfully.' : 'Account created successfully.')
       setAuthForm(emptyAuth)
+      setMessage(authMode === 'login' ? t.authSuccess : t.registerSuccess)
     } catch (requestError) {
       setError(requestError.message)
     } finally {
@@ -340,25 +712,81 @@ function App() {
     }
   }
 
-  async function handleTradeSubmit(event) {
+  async function handleProfileSubmit(event) {
     event.preventDefault()
-    if (!selectedChartAsset || !token) {
+    if (!token) return
+    setError('')
+    setMessage('')
+    setLoading((current) => ({ ...current, settings: true }))
+    try {
+      const data = await updateAccount(token, accountForm)
+      setAccount(data)
+      setMessage(t.profileUpdated)
+    } catch (requestError) {
+      setError(requestError.message)
+    } finally {
+      setLoading((current) => ({ ...current, settings: false }))
+    }
+  }
+
+  async function handlePasswordSubmit(event) {
+    event.preventDefault()
+    if (!token) return
+    if (passwordForm.newPassword !== passwordForm.confirmPassword) {
+      setError('Yeni şifre tekrar alanı eşleşmiyor')
       return
     }
+    setError('')
+    setMessage('')
+    setLoading((current) => ({ ...current, settings: true }))
+    try {
+      await changePassword(token, {
+        currentPassword: passwordForm.currentPassword,
+        newPassword: passwordForm.newPassword,
+      })
+      setPasswordForm(emptyPasswordForm)
+      setMessage(t.passwordUpdated)
+    } catch (requestError) {
+      setError(requestError.message)
+    } finally {
+      setLoading((current) => ({ ...current, settings: false }))
+    }
+  }
 
+  async function handleDeleteAccount(event) {
+    event.preventDefault()
+    if (!token) return
+    setError('')
+    setMessage('')
+    setLoading((current) => ({ ...current, settings: true }))
+    try {
+      await deleteAccount(token, deleteForm)
+      setSession(null)
+      setAccount(null)
+      setPortfolio(null)
+      localStorage.removeItem('cryptopal-session')
+      setSettingsOpen(false)
+      setMessage(t.accountDeleted)
+    } catch (requestError) {
+      setError(requestError.message)
+    } finally {
+      setLoading((current) => ({ ...current, settings: false }))
+    }
+  }
+
+  async function handleTradeSubmit(event) {
+    event.preventDefault()
+    if (!selectedAsset || !token) return
     setError('')
     setMessage('')
     setLoading((current) => ({ ...current, trade: true }))
-
     try {
       const response = await executeTrade(token, {
-        symbol: selectedChartAsset.symbol,
+        symbol: selectedAsset.symbol,
         type: tradeType,
         quantity: Number(quantity),
       })
-      setMessage(
-        `${response.type} order executed: ${formatCrypto(response.quantity)} ${response.symbol}`,
-      )
+      setMessage(`${response.symbol} ${t.executed}: ${formatCrypto(response.quantity)}`)
       setQuantity('')
       await loadPortfolio()
       await loadPrices()
@@ -371,14 +799,10 @@ function App() {
 
   async function handleAiSubmit(event) {
     event.preventDefault()
-    if (!token) {
-      return
-    }
-
+    if (!token) return
     setError('')
     setMessage('')
     setLoading((current) => ({ ...current, ai: true }))
-
     try {
       const response = await queryAi(token, { question: aiQuestion })
       setAiAnswer(response.answer)
@@ -389,482 +813,421 @@ function App() {
     }
   }
 
-  function signOut() {
-    setSession(null)
-    setPortfolio(null)
-    setSettingsOpen(false)
-    setPasswordForm(emptyPasswordForm)
-    setDeleteConfirmation('')
-    setSettingsFeedback('')
-    localStorage.removeItem('cryptopal-session')
-    setMessage('Signed out.')
-  }
-
-  function handlePasswordSettingsSubmit(event) {
+  function handleAiDragStart(event) {
+    if (event.button !== 0) return
+    const widget = event.currentTarget.closest('.floating-ai')
+    if (!widget) return
     event.preventDefault()
-    if (passwordForm.currentPassword.length < 6) {
-      setSettingsFeedback('Current password must be at least 6 characters.')
-      return
+    const startRect = widget.getBoundingClientRect()
+    const offsetX = event.clientX - startRect.left
+    const offsetY = event.clientY - startRect.top
+
+    function moveWidget(moveEvent) {
+      const width = widget.offsetWidth
+      const height = widget.offsetHeight
+      const left = Math.min(Math.max(moveEvent.clientX - offsetX, 12), window.innerWidth - width - 12)
+      const top = Math.min(Math.max(moveEvent.clientY - offsetY, 12), window.innerHeight - height - 12)
+      setAiPosition({ left, top })
     }
-    if (passwordForm.newPassword.length < 8) {
-      setSettingsFeedback('New password must be at least 8 characters.')
-      return
+
+    function stopMove() {
+      window.removeEventListener('pointermove', moveWidget)
+      window.removeEventListener('pointerup', stopMove)
     }
-    if (passwordForm.newPassword === passwordForm.currentPassword) {
-      setSettingsFeedback('New password must be different from the current password.')
-      return
-    }
-    if (passwordForm.newPassword !== passwordForm.confirmPassword) {
-      setSettingsFeedback('New password confirmation does not match.')
-      return
-    }
-    setSettingsFeedback('Password form is ready. Backend connection will be added in the account API stage.')
+
+    window.addEventListener('pointermove', moveWidget)
+    window.addEventListener('pointerup', stopMove, { once: true })
   }
 
-  function handleDeleteAccount() {
-    if (deleteConfirmation !== session?.email) {
-      setSettingsFeedback('Enter your full email address to confirm account deletion.')
-      return
-    }
-    setSettingsFeedback('Delete confirmation is ready. Backend connection will be added in the account API stage.')
-  }
-
-  function selectAsset(asset) {
+  function openAssetDialog(asset) {
     setSelectedSymbol(asset.symbol)
+    setAssetDialogOpen(true)
     setQuantity('')
     setError('')
     setMessage('')
-    window.requestAnimationFrame(() => {
-      tradeWorkspaceRef.current?.scrollIntoView({ behavior: 'smooth', block: 'start' })
-    })
   }
 
-  const canSellSelected =
-    selectedChartAsset && Number(holdingsBySymbol.get(selectedChartAsset.symbol) ?? 0) > 0
+  function toggleFavorite(symbol) {
+    setFavorites((current) => (current.includes(symbol) ? current.filter((item) => item !== symbol) : [...current, symbol]))
+  }
+
+  function signOut() {
+    setSession(null)
+    setAccount(null)
+    setPortfolio(null)
+    localStorage.removeItem('cryptopal-session')
+    setMessage(t.signedOut)
+  }
 
   return (
-    <main className="app-shell">
-      <header className="topbar">
-        <div>
-          <span className="eyebrow">CryptoPal</span>
-          <h1>Trading Console</h1>
-        </div>
-        <button className="refresh-button" type="button" onClick={loadPrices}>
-          {loading.prices ? 'Refreshing' : `Refresh (${refreshCountdown}s)`}
+    <main className={`exchange-shell theme-${theme}`}>
+      <header className="exchange-topbar">
+        <button className="brand-mark" type="button" onClick={() => window.scrollTo({ top: 0, behavior: 'smooth' })}>
+          <span className="brand-glyph">CV</span>
+          <strong>{t.brand}</strong>
         </button>
+        <nav className="main-nav" aria-label="Primary">
+          <a href="#markets">{t.markets}</a>
+          <button type="button" onClick={() => setAiOpen(true)}>{t.ai}</button>
+          <a href="#wallet-section">{t.wallet}</a>
+        </nav>
+        <div className="top-actions">
+          <select aria-label={t.currency} value={currency} onChange={(event) => setCurrency(event.target.value)}>
+            {currencyOptions.map((option) => <option key={option} value={option}>{currencyMeta[option].label}</option>)}
+          </select>
+          <select aria-label={t.language} value={language} onChange={(event) => setLanguage(event.target.value)}>
+            {languageOptions.map((option) => <option key={option} value={option}>{option.toUpperCase()}</option>)}
+          </select>
+          <button className="theme-button" type="button" onClick={() => setTheme((current) => (current === 'dark' ? 'light' : 'dark'))}>
+            {theme === 'dark' ? t.light : t.dark}
+          </button>
+          <button className="primary-button compact" type="button" onClick={() => setSettingsOpen(true)}>{t.settings}</button>
+        </div>
       </header>
 
-      {(error || message) && (
-        <div className={error ? 'notice error' : 'notice success'}>{error || message}</div>
-      )}
+      {(error || message) && <div className={error ? 'notice error' : 'notice success'}>{error || message}</div>}
 
-      <section className="workspace">
-        <aside className="side-column">
-          <section className="panel">
-            <div className="panel-header">
-              <h2>{session ? 'Session' : 'Account'}</h2>
+      <section className="market-hero" id="markets">
+        <div>
+          <h1>{t.overview}</h1>
+          <p>{t.subtitle}</p>
+        </div>
+        <button className="primary-button" type="button" onClick={() => { loadPrices(); loadRates(); }}>
+          {loading.prices || loading.rates ? t.loading : t.refresh}
+        </button>
+      </section>
+
+      <section className="exchange-layout">
+        <div className="market-area">
+          <div className="market-tabs" role="tablist" aria-label={t.markets}>
+            {[
+              ['all', t.all],
+              ['portfolio', t.portfolio],
+              ['gainers', t.gainers],
+              ['stable', t.stable],
+              ['majors', t.majors],
+            ].map(([key, label]) => (
+              <button className={activeFilter === key ? 'active' : ''} key={key} onClick={() => setActiveFilter(key)} type="button">
+                {label}
+              </button>
+            ))}
+          </div>
+
+          <div className="market-toolbar">
+            <input aria-label={t.search} placeholder={t.search} value={searchTerm} onChange={(event) => setSearchTerm(event.target.value)} />
+          </div>
+
+          <div className="market-table" role="table">
+            <div className="market-row market-head" role="row">
+              <span>{t.coin}</span>
+              <span>{t.price}</span>
+              <span>{t.change}</span>
+              <span>{t.updated}</span>
+              <span>{t.balance}</span>
+              <span>{t.action}</span>
             </div>
-
-            {session ? (
-              <div className="session-box">
-                <div className="session-identity">
-                  <span className="label">Signed in as</span>
-                  <strong>{session.email}</strong>
-                </div>
-                <div className="session-actions">
-                  <button className="ghost-button" type="button" aria-haspopup="dialog" aria-expanded={settingsOpen} aria-controls="account-settings" onClick={() => { setSettingsOpen(true); setSettingsFeedback('') }}>
-                    Account settings
-                  </button>
-                  <button type="button" onClick={signOut}>Sign out</button>
-                </div>
-
-                {settingsOpen && (
-                  <div className="settings-backdrop" onMouseDown={() => setSettingsOpen(false)}>
-                    <section aria-labelledby="settings-title" aria-modal="true" className="account-settings" id="account-settings" onMouseDown={(event) => event.stopPropagation()} role="dialog">
-                      <header className="settings-modal-header">
-                        <div>
-                          <span className="label">Account</span>
-                          <h2 id="settings-title">Account settings</h2>
-                          <p>{session.email}</p>
-                        </div>
-                        <button aria-label="Close account settings" className="icon-button" onClick={() => setSettingsOpen(false)} type="button">×</button>
-                      </header>
-                      <div className="settings-modal-body">
-                        <div className="settings-heading">
-                          <span className="label">Security</span>
-                          <h3>Change password</h3>
-                          <p>Use at least 8 characters for your new password.</p>
-                        </div>
-                        <form className="settings-form" onSubmit={handlePasswordSettingsSubmit}>
-                          <label>
-                            Current password
-                            <input autoComplete="current-password" minLength={6} onChange={(event) => setPasswordForm((current) => ({ ...current, currentPassword: event.target.value }))} required type="password" value={passwordForm.currentPassword}/>
-                          </label>
-                          <label>
-                            New password
-                            <input autoComplete="new-password" minLength={8} onChange={(event) => setPasswordForm((current) => ({ ...current, newPassword: event.target.value }))} required type="password" value={passwordForm.newPassword}/>
-                          </label>
-                          <label>
-                            Confirm new password
-                            <input autoComplete="new-password" minLength={8} onChange={(event) => setPasswordForm((current) => ({ ...current, confirmPassword: event.target.value }))} required type="password" value={passwordForm.confirmPassword}/>
-                          </label>
-                          <button type="submit">Validate password change</button>
-                        </form>
-
-                        <div className="danger-zone">
-                          <span className="label">Danger zone</span>
-                          <h3>Delete account</h3>
-                          <p>This will permanently remove the account, portfolio and order history after backend confirmation.</p>
-                          <label>
-                            Type {session.email} to confirm
-                            <input onChange={(event) => setDeleteConfirmation(event.target.value)} placeholder={session.email} type="email" value={deleteConfirmation}/>
-                          </label>
-                          <button className="danger-button" disabled={deleteConfirmation !== session.email} onClick={handleDeleteAccount} type="button">Validate account deletion</button>
-                        </div>
-                        {settingsFeedback && <div className="settings-feedback" role="status">{settingsFeedback}</div>}
-                      </div>
-                    </section>
+            {filteredPrices.map((asset) => {
+              const trendClass = Number(asset.changePercent ?? 0) >= 0 ? 'up' : 'down'
+              const isFavorite = favorites.includes(asset.symbol)
+              const held = holdingsBySymbol.get(asset.symbol) ?? 0
+              const isSelected = selectedAsset?.symbol === asset.symbol
+              return (
+                <div className={`market-row ${isSelected ? 'selected' : ''}`} key={asset.symbol} role="row">
+                  <div className="coin-cell">
+                    <button className={`star-button ${isFavorite ? 'active' : ''}`} aria-label={`${asset.symbol} favorite`} onClick={() => toggleFavorite(asset.symbol)} type="button">
+                      ★
+                    </button>
+                    <CoinIcon symbol={asset.symbol} />
+                    <button className="coin-name" onClick={() => openAssetDialog(asset)} type="button">
+                      <strong>{asset.symbol}</strong>
+                      <span>{coinNames[asset.symbol] ?? asset.pair}</span>
+                    </button>
                   </div>
-                )}
-              </div>
-            ) : (
-              <form className="stack-form" onSubmit={handleAuthSubmit}>
-                <div className="segmented-control">
-                  <button
-                    className={authMode === 'login' ? 'active' : ''}
-                    type="button"
-                    onClick={() => setAuthMode('login')}
-                  >
-                    Login
-                  </button>
-                  <button
-                    className={authMode === 'register' ? 'active' : ''}
-                    type="button"
-                    onClick={() => setAuthMode('register')}
-                  >
-                    Register
-                  </button>
+                  <strong className="price-cell">{formatMoney(asset.price, currency, rates)}</strong>
+                  <span className={`change-cell ${trendClass}`}>{formatPercent(asset.changePercent)}</span>
+                  <span>{new Date(asset.updatedAt).toLocaleTimeString(currencyMeta[currency].locale, { hour: '2-digit', minute: '2-digit', second: '2-digit' })}</span>
+                  <span>{formatCrypto(held)}</span>
+                  <button className="trade-link" type="button" onClick={() => openAssetDialog(asset)}>{t.details}</button>
                 </div>
-                <label>
-                  Email
-                  <input
-                    autoComplete="email"
-                    onChange={(event) =>
-                      setAuthForm((current) => ({ ...current, email: event.target.value }))
-                    }
-                    required
-                    type="email"
-                    value={authForm.email}
-                  />
-                </label>
-                <label>
-                  Password
-                  <input
-                    autoComplete={authMode === 'login' ? 'current-password' : 'new-password'}
-                    minLength={6}
-                    onChange={(event) =>
-                      setAuthForm((current) => ({
-                        ...current,
-                        password: event.target.value,
-                      }))
-                    }
-                    required
-                    type="password"
-                    value={authForm.password}
-                  />
-                </label>
-                <button disabled={loading.auth} type="submit">
-                  {loading.auth ? 'Please wait' : authMode === 'login' ? 'Login' : 'Create account'}
-                </button>
-              </form>
+              )
+            })}
+          </div>
+        </div>
+
+        <aside className="right-rail">
+          <section className="rail-panel favorites-panel">
+            <div className="rail-heading">
+              <h2>{t.favorites}</h2>
+              <span>{favoriteAssets.length}</span>
+            </div>
+            {favoriteAssets.length === 0 ? (
+              <div className="empty-state">{t.noFavorites}</div>
+            ) : (
+              <div className="favorite-list">
+                {favoriteAssets.map((asset) => (
+                  <button className="favorite-row" key={asset.symbol} onClick={() => openAssetDialog(asset)} type="button">
+                    <CoinIcon size="small" symbol={asset.symbol} />
+                    <span>{asset.symbol}</span>
+                    <strong>{formatMoney(asset.price, currency, rates)}</strong>
+                  </button>
+                ))}
+              </div>
             )}
           </section>
 
-          <section className="panel">
-            <div className="panel-header">
-              <h2>Portfolio</h2>
-              {loading.portfolio && <span className="status">Loading</span>}
+          <section className="rail-panel account-panel">
+            <div className="rail-heading">
+              <h2>{session ? t.signedIn : t.account}</h2>
             </div>
             {session ? (
-              <Portfolio portfolio={portfolio} prices={prices} />
+              <div className="session-box">
+                <strong className="session-email">{account?.displayName || session.email}</strong>
+                <span className="muted">{account?.phoneNumber || t.noHoldings}</span>
+                <div className="balance-stack">
+                  <span>{t.wallet}</span>
+                  <strong>{formatMoney(summary.totalValue, currency, rates)}</strong>
+                </div>
+                <button className="primary-button" type="button" onClick={() => setSettingsOpen(true)}>{t.settings}</button>
+                <button className="secondary-button" type="button" onClick={signOut}>{t.signOut}</button>
+              </div>
             ) : (
-              <div className="empty-state">Login to see balance, holdings, and recent orders.</div>
+              <form className="auth-form" onSubmit={handleAuthSubmit}>
+                <div className="segmented-control">
+                  <button className={authMode === 'login' ? 'active' : ''} type="button" onClick={() => setAuthMode('login')}>{t.login}</button>
+                  <button className={authMode === 'register' ? 'active' : ''} type="button" onClick={() => setAuthMode('register')}>{t.create}</button>
+                </div>
+                <label>{t.email}<input autoComplete="email" required type="email" value={authForm.email} onChange={(event) => setAuthForm((current) => ({ ...current, email: event.target.value }))} /></label>
+                <label>{t.password}<input autoComplete={authMode === 'login' ? 'current-password' : 'new-password'} minLength={6} required type="password" value={authForm.password} onChange={(event) => setAuthForm((current) => ({ ...current, password: event.target.value }))} /></label>
+                <button className="primary-button" disabled={loading.auth} type="submit">{loading.auth ? t.loading : authMode === 'login' ? t.login : t.create}</button>
+              </form>
             )}
           </section>
         </aside>
-
-        <section className="main-column">
-          <section className="panel market-panel">
-            <div className="panel-header">
-              <div>
-                <h2>Live Market</h2>
-                <p>Prices are read from the backend cache and refreshed automatically.</p>
-              </div>
-              {loading.prices && <span className="status">Syncing</span>}
-            </div>
-
-            <div className="market-grid">
-              {prices.map((asset) => {
-                const heldQuantity = holdingsBySymbol.get(asset.symbol) ?? 0
-                const dailyChange = Number(asset.changePercent ?? 0)
-                const trendClass = dailyChange >= 0 ? 'up' : 'down'
-                return (
-                  <button
-                    aria-controls="trade-workspace"
-                    aria-pressed={selectedChartAsset?.symbol === asset.symbol}
-                    className={`asset-card ${trendClass} ${
-                      selectedChartAsset?.symbol === asset.symbol ? 'selected' : ''
-                    }`}
-                    key={asset.symbol}
-                    onClick={() => selectAsset(asset)}
-                    type="button"
-                  >
-                    <div className="asset-card-top">
-                      <div className="asset-identity">
-                        <CoinIcon symbol={asset.symbol} />
-                        <div>
-                        <span className="asset-symbol">{asset.symbol}</span>
-                        <span className="asset-pair">{asset.pair}</span>
-                        </div>
-                      </div>
-                      <span className={`daily-change ${trendClass}`}>{formatPercent(dailyChange)}</span>
-                    </div>
-                    <strong>{formatMoney(asset.price)}</strong>
-                    <div className="asset-card-meta">
-                      <span>24h</span>
-                      <span>Held: {formatCrypto(heldQuantity)}</span>
-                    </div>
-                  </button>
-                )
-              })}
-            </div>
-          </section>
-
-          <section className="panel trade-workspace" id="trade-workspace" ref={tradeWorkspaceRef}>
-            <div className="chart-panel">
-              <div className="panel-header">
-                <div>
-                  <span className="eyebrow">Selected market</span>
-                  <h2>{selectedChartAsset ? `${selectedChartAsset.symbol} Chart` : 'Price Chart'}</h2>
-                  {selectedChartAsset && (
-                    <p>
-                      {formatMoney(selectedChartAsset.price)} -{' '}
-                      {formatPercent(selectedChartAsset.changePercent)} 24h
-                    </p>
-                  )}
-                </div>
-                {loading.history && <span className="status">Loading</span>}
-              </div>
-              <PriceChart history={priceHistory} />
-            </div>
-
-            <aside className="inline-trade-panel">
-              <div className="selected-asset-heading">
-                {selectedChartAsset && (
-                  <CoinIcon key={selectedChartAsset.symbol} size="large" symbol={selectedChartAsset.symbol}/>
-                )}
-                <div>
-                <span className="eyebrow">Quick trade</span>
-                <h2>{selectedChartAsset?.symbol ?? 'Select an asset'}</h2>
-                <p>{selectedChartAsset ? `Market price: ${formatMoney(selectedChartAsset.price)}` : 'Choose a coin above.'}</p>
-                </div>
-              </div>
-              <form className="inline-trade-form" onSubmit={handleTradeSubmit}>
-                <div className="segmented-control">
-                  <button className={tradeType === 'BUY' ? 'active' : ''} type="button" onClick={() => setTradeType('BUY')}>Buy</button>
-                  <button className={tradeType === 'SELL' ? 'active' : ''} disabled={!canSellSelected} type="button" onClick={() => setTradeType('SELL')}>Sell</button>
-                </div>
-                <label>
-                  Quantity
-                  <input min="0.0000000001" onChange={(event) => setQuantity(event.target.value)} placeholder="0.00" required step="0.0000000001" type="number" value={quantity}/>
-                </label>
-                <div className="estimate">
-                  Estimated total
-                  <strong>{formatMoney(Number(quantity || 0) * Number(selectedChartAsset?.price ?? 0))}</strong>
-                </div>
-                {!session && <div className="trade-login-note">Login to place an order.</div>}
-                <button disabled={loading.trade || !session || !selectedChartAsset} type="submit">
-                  {loading.trade ? 'Executing' : `${tradeType === 'BUY' ? 'Buy' : 'Sell'} ${selectedChartAsset?.symbol ?? ''}`}
-                </button>
-              </form>
-            </aside>
-          </section>
-
-          <section className="panel">
-            <div className="panel-header">
-              <h2>Recent Orders</h2>
-            </div>
-            <RecentOrders transactions={portfolio?.recentTransactions ?? []} />
-          </section>
-
-          <section className="panel ai-panel">
-            <div className="panel-header">
-              <h2>AI Insights</h2>
-              {loading.ai && <span className="status">Thinking</span>}
-            </div>
-            {session ? (
-              <form className="ai-form" onSubmit={handleAiSubmit}>
-                <textarea
-                  maxLength={1000}
-                  onChange={(event) => setAiQuestion(event.target.value)}
-                  placeholder="Portföyümde risk var mı?"
-                  required
-                  rows={3}
-                  value={aiQuestion}
-                />
-                <button disabled={loading.ai || !aiQuestion.trim()} type="submit">
-                  {loading.ai ? 'Asking' : 'Ask AI'}
-                </button>
-                {aiAnswer && <div className="ai-answer">{aiAnswer}</div>}
-              </form>
-            ) : (
-              <div className="empty-state">Login to ask AI about your portfolio.</div>
-            )}
-          </section>
-        </section>
       </section>
 
+      <section className="wallet-section" id="wallet-section">
+        <div className="section-heading">
+          <div>
+            <span>{t.wallet}</span>
+            <h2>{t.holdings}</h2>
+          </div>
+          {session && <strong>{formatMoney(summary.totalValue, currency, rates)}</strong>}
+        </div>
+        {session ? (
+          <div className="wallet-grid">
+            <div className="balance-stack wallet-cash">
+              <span>{t.cashBalance}</span>
+              <strong>{formatMoney(portfolio?.fiatBalance ?? 0, currency, rates)}</strong>
+            </div>
+            <div className="wallet-holdings">
+              {walletHoldings.length === 0 ? (
+                <div className="empty-state">{t.noHoldings}</div>
+              ) : (
+                walletHoldings.map((holding) => (
+                  <div className="wallet-row" key={holding.symbol}>
+                    <div className="coin-cell">
+                      <CoinIcon size="small" symbol={holding.symbol} />
+                      <div>
+                        <strong>{holding.symbol}</strong>
+                        <span>{formatCrypto(holding.quantity)}</span>
+                      </div>
+                    </div>
+                    <strong>{formatMoney(holding.valueUsd, currency, rates)}</strong>
+                    <button className="trade-link" disabled={!holding.asset} type="button" onClick={() => holding.asset && openAssetDialog(holding.asset)}>
+                      {t.trade}
+                    </button>
+                  </div>
+                ))
+              )}
+            </div>
+            <div className="quick-wallet-trades">
+              {quickTradeAssets.map((asset) => (
+                <button className="favorite-row" key={asset.symbol} type="button" onClick={() => openAssetDialog(asset)}>
+                  <CoinIcon size="small" symbol={asset.symbol} />
+                  <span>{asset.symbol}</span>
+                  <strong>{formatMoney(asset.price, currency, rates)}</strong>
+                </button>
+              ))}
+            </div>
+          </div>
+        ) : (
+          <div className="empty-state">{t.loginToTrade}</div>
+        )}
+      </section>
+
+      {aiOpen ? (
+        <section className="floating-ai open" style={aiWidgetStyle}>
+          <header className="floating-ai-header" title={t.dragChat} onPointerDown={handleAiDragStart}>
+            <div>
+              <span>Gemini</span>
+              <strong>{t.ai}</strong>
+            </div>
+            <button type="button" aria-label={t.close} onPointerDown={(event) => event.stopPropagation()} onClick={() => setAiOpen(false)}>×</button>
+          </header>
+          {session ? (
+            <form className="ai-form floating-ai-body" onSubmit={handleAiSubmit}>
+              <textarea value={aiQuestion} onChange={(event) => setAiQuestion(event.target.value)} placeholder={t.aiPlaceholder} rows={4} maxLength={1000} required />
+              <button className="primary-button" disabled={loading.ai || !aiQuestion.trim()} type="submit">{loading.ai ? t.loading : t.askAi}</button>
+              {aiAnswer && <div className="ai-answer">{aiAnswer}</div>}
+            </form>
+          ) : (
+            <div className="empty-state floating-ai-body">{t.aiLogin}</div>
+          )}
+        </section>
+      ) : (
+        <button className="floating-ai ai-bubble" style={aiWidgetStyle} type="button" onClick={() => setAiOpen(true)}>
+          AI
+        </button>
+      )}
+
+      <section className="orders-section">
+        <div className="section-heading">
+          <h2>{t.recentOrders}</h2>
+        </div>
+        <RecentOrders currency={currency} rates={rates} transactions={portfolio?.recentTransactions ?? []} t={t} />
+      </section>
+
+      {assetDialogOpen && selectedAsset && (
+        <div className="modal-backdrop" onMouseDown={() => setAssetDialogOpen(false)}>
+          <section className="asset-modal" onMouseDown={(event) => event.stopPropagation()} role="dialog" aria-modal="true">
+            <header className="modal-header">
+              <div className="trade-title">
+                <CoinIcon size="large" symbol={selectedAsset.symbol} />
+                <div>
+                  <span>{selectedAsset.pair}</span>
+                  <h2>{selectedAsset.symbol} {t.chart}</h2>
+                </div>
+              </div>
+              <button className="close-button" type="button" aria-label="Close" onClick={() => setAssetDialogOpen(false)}>×</button>
+            </header>
+            <div className="asset-modal-body">
+              <div className="chart-card inline">
+                <PriceChart currency={currency} history={priceHistory} rates={rates} />
+              </div>
+              <form className="trade-card inline" onSubmit={handleTradeSubmit}>
+                <div className="asset-stats">
+                  <div><span>{t.price}</span><strong>{formatMoney(selectedAsset.price, currency, rates)}</strong></div>
+                  <div><span>{t.change}</span><strong className={Number(selectedAsset.changePercent) >= 0 ? 'up-text' : 'down-text'}>{formatPercent(selectedAsset.changePercent)}</strong></div>
+                </div>
+                <div className="segmented-control">
+                  <button className={tradeType === 'BUY' ? 'active buy' : ''} type="button" onClick={() => setTradeType('BUY')}>{t.buy}</button>
+                  <button className={tradeType === 'SELL' ? 'active sell' : ''} disabled={!canSellSelected} type="button" onClick={() => setTradeType('SELL')}>{t.sell}</button>
+                </div>
+                <label>{t.quantity}<input min="0.0000000001" step="0.0000000001" required type="number" value={quantity} onChange={(event) => setQuantity(event.target.value)} /></label>
+                <label>{t.currency}
+                  <select value={currency} onChange={(event) => setCurrency(event.target.value)}>
+                    {currencyOptions.map((option) => <option key={option} value={option}>{currencyMeta[option].label}</option>)}
+                  </select>
+                </label>
+                <div className="estimate-card">
+                  <span>{t.estimate}</span>
+                  <strong>{formatMoney(estimateUsd, currency, rates)}</strong>
+                </div>
+                {!session && <div className="empty-state">{t.loginToTrade}</div>}
+                <button className="primary-button" disabled={loading.trade || !session} type="submit">{loading.trade ? t.loading : t.execute}</button>
+              </form>
+            </div>
+          </section>
+        </div>
+      )}
+
+      {settingsOpen && (
+        <div className="modal-backdrop" onMouseDown={() => setSettingsOpen(false)}>
+          <section className="settings-modal" onMouseDown={(event) => event.stopPropagation()} role="dialog" aria-modal="true">
+            <header className="modal-header">
+              <div>
+                <span>{t.account}</span>
+                <h2>{t.settings}</h2>
+              </div>
+              <button className="close-button" type="button" aria-label="Close" onClick={() => setSettingsOpen(false)}>×</button>
+            </header>
+            <div className="settings-grid">
+              <label>{t.language}<select value={language} onChange={(event) => setLanguage(event.target.value)}>{languageOptions.map((option) => <option key={option} value={option}>{option.toUpperCase()}</option>)}</select></label>
+              <label>{t.currency}<select value={currency} onChange={(event) => setCurrency(event.target.value)}>{currencyOptions.map((option) => <option key={option} value={option}>{currencyMeta[option].label}</option>)}</select></label>
+              <label>{t.theme}<select value={theme} onChange={(event) => setTheme(event.target.value)}><option value="light">{t.light}</option><option value="dark">{t.dark}</option></select></label>
+            </div>
+            {session && (
+              <>
+                <form className="settings-form" onSubmit={handleProfileSubmit}>
+                  <h3>{t.updateProfile}</h3>
+                  <label>{t.email}<input readOnly value={account?.email ?? session.email} /></label>
+                  <label>{t.displayName}<input value={accountForm.displayName} onChange={(event) => setAccountForm((current) => ({ ...current, displayName: event.target.value }))} maxLength={120} /></label>
+                  <label>{t.phone}<input value={accountForm.phoneNumber} onChange={(event) => setAccountForm((current) => ({ ...current, phoneNumber: event.target.value }))} maxLength={32} placeholder="+90 5xx xxx xx xx" /></label>
+                  <button className="primary-button" disabled={loading.settings} type="submit">{t.updateProfile}</button>
+                </form>
+                <form className="settings-form" onSubmit={handlePasswordSubmit}>
+                  <h3>{t.security}</h3>
+                  <label>{t.currentPassword}<input type="password" value={passwordForm.currentPassword} onChange={(event) => setPasswordForm((current) => ({ ...current, currentPassword: event.target.value }))} required minLength={6} /></label>
+                  <label>{t.newPassword}<input type="password" value={passwordForm.newPassword} onChange={(event) => setPasswordForm((current) => ({ ...current, newPassword: event.target.value }))} required minLength={8} /></label>
+                  <label>{t.confirmPassword}<input type="password" value={passwordForm.confirmPassword} onChange={(event) => setPasswordForm((current) => ({ ...current, confirmPassword: event.target.value }))} required minLength={8} /></label>
+                  <button className="secondary-button" disabled={loading.settings} type="submit">{t.changePassword}</button>
+                </form>
+                <form className="danger-zone" onSubmit={handleDeleteAccount}>
+                  <h3>{t.deleteAccount}</h3>
+                  <p>{t.confirmDelete}</p>
+                  <label>{t.email}<input type="email" value={deleteForm.emailConfirmation} onChange={(event) => setDeleteForm((current) => ({ ...current, emailConfirmation: event.target.value }))} required /></label>
+                  <label>{t.password}<input type="password" value={deleteForm.password} onChange={(event) => setDeleteForm((current) => ({ ...current, password: event.target.value }))} required /></label>
+                  <button className="danger-button" disabled={loading.settings} type="submit">{t.deleteAccount}</button>
+                </form>
+              </>
+            )}
+          </section>
+        </div>
+      )}
     </main>
   )
 }
 
-function PriceChart({ history }) {
+function PriceChart({ currency, history, rates }) {
   const chartData = history.map((point) => ({
-    ...point,
     price: Number(point.price),
-    time: new Date(point.capturedAt).toLocaleTimeString('en-US', {
-      hour: '2-digit',
-      minute: '2-digit',
-    }),
+    time: new Date(point.capturedAt).toLocaleTimeString(currencyMeta[currency].locale, { hour: '2-digit', minute: '2-digit' }),
   }))
 
   if (chartData.length === 0) {
-    return <div className="empty-state">Price history will appear after market snapshots are collected.</div>
+    return <div className="empty-state">Grafik için piyasa snapshotı bekleniyor.</div>
   }
 
   return (
     <div className="price-chart">
-      <ResponsiveContainer height={260} width="100%">
+      <ResponsiveContainer height={300} width="100%">
         <LineChart data={chartData} margin={{ bottom: 4, left: 4, right: 18, top: 8 }}>
-          <CartesianGrid stroke="#e5e7eb" strokeDasharray="4 4" />
-          <XAxis dataKey="time" minTickGap={24} stroke="#64748b" tick={{ fontSize: 12 }} />
+          <CartesianGrid stroke="var(--chart-grid)" strokeDasharray="4 4" />
+          <XAxis dataKey="time" minTickGap={24} stroke="var(--muted)" tick={{ fontSize: 12 }} />
           <YAxis
             domain={['auto', 'auto']}
-            stroke="#64748b"
+            stroke="var(--muted)"
             tick={{ fontSize: 12 }}
-            tickFormatter={(value) =>
-              Number(value).toLocaleString('en-US', {
-                maximumFractionDigits: 2,
-              })
-            }
-            width={72}
+            tickFormatter={(value) => formatMoney(value, currency, rates).replace(/\s/g, '')}
+            width={88}
           />
-          <Tooltip
-            formatter={(value) => [formatMoney(value), 'Price']}
-            labelFormatter={(label) => `Time: ${label}`}
-          />
-          <Line
-            dataKey="price"
-            dot={false}
-            isAnimationActive={false}
-            stroke="#2563eb"
-            strokeWidth={3}
-            type="monotone"
-          />
+          <Tooltip contentStyle={{ background: 'var(--panel)', border: '1px solid var(--border)', color: 'var(--text)' }} formatter={(value) => [formatMoney(value, currency, rates), '']} />
+          <Line dataKey="price" dot={false} isAnimationActive={false} stroke="var(--accent)" strokeWidth={3} type="monotone" />
         </LineChart>
       </ResponsiveContainer>
     </div>
   )
 }
 
-function Portfolio({ portfolio, prices }) {
-  if (!portfolio) {
-    return <div className="empty-state">Portfolio data is loading.</div>
-  }
-
-  const summary = buildPortfolioSummary(portfolio, prices)
-  const pieGradient = buildPieGradient(summary.allocations)
-  const profitClass = summary.profitLoss >= 0 ? 'positive' : 'negative'
-
-  return (
-    <div className="portfolio-block">
-      <div className="balance-box">
-        <span className="label">Cash balance</span>
-        <strong>{formatMoney(portfolio.fiatBalance)}</strong>
-      </div>
-      <div className="portfolio-chart-block">
-        <div className="donut-chart" style={{ background: pieGradient }}>
-          <div className="donut-hole">
-            <span>Total</span>
-            <strong>{formatMoney(summary.totalValue)}</strong>
-          </div>
-        </div>
-        <div className="allocation-list">
-          {summary.allocations.length === 0 ? (
-            <div className="empty-state">No portfolio value yet.</div>
-          ) : (
-            summary.allocations.map((allocation) => (
-              <div className="allocation-row" key={allocation.label}>
-                <span className="swatch" style={{ backgroundColor: allocation.color }}></span>
-                <span>{allocation.label}</span>
-                <strong>{allocation.percent.toFixed(1)}%</strong>
-              </div>
-            ))
-          )}
-        </div>
-      </div>
-      <div className="holdings-list">
-        {portfolio.holdings.length === 0 ? (
-          <div className="empty-state">No crypto holdings yet.</div>
-        ) : (
-          portfolio.holdings.map((holding) => (
-            <div className="holding-row" key={holding.symbol}>
-              <span className="holding-asset"><CoinIcon size="small" symbol={holding.symbol}/>{holding.symbol}</span>
-              <strong>{formatCrypto(holding.quantity)}</strong>
-            </div>
-          ))
-        )}
-      </div>
-      <div className="profit-card">
-        <div>
-          <span className="label">Crypto value</span>
-          <strong>{formatMoney(summary.holdingsValue)}</strong>
-        </div>
-        <div>
-          <span className="label">Cost basis</span>
-          <strong>{formatMoney(summary.investedCost)}</strong>
-        </div>
-        <div className={profitClass}>
-          <span className="label">Profit / Loss</span>
-          <strong>{formatMoney(summary.profitLoss)}</strong>
-          <small>{summary.profitLossPercent.toFixed(2)}%</small>
-        </div>
-      </div>
-    </div>
-  )
-}
-
-function RecentOrders({ transactions }) {
+function RecentOrders({ currency, rates, t, transactions }) {
   if (transactions.length === 0) {
-    return <div className="empty-state">No orders yet.</div>
+    return <div className="empty-state">{t.noOrders}</div>
   }
 
   return (
     <div className="orders-table">
-      <div className="orders-head">
+      <div className="orders-row orders-head">
         <span>Type</span>
-        <span>Asset</span>
-        <span>Qty</span>
-        <span>Total</span>
+        <span>{t.coin}</span>
+        <span>{t.quantity}</span>
+        <span>{t.estimate}</span>
       </div>
       {transactions.map((transaction) => (
         <div className="orders-row" key={transaction.id}>
-          <span className={transaction.type === 'BUY' ? 'buy-text' : 'sell-text'}>
-            {transaction.type}
-          </span>
+          <strong className={transaction.type === 'BUY' ? 'buy-text' : 'sell-text'}>{transaction.type}</strong>
           <span>{transaction.symbol}</span>
           <span>{formatCrypto(transaction.quantity)}</span>
-          <span>{formatMoney(transaction.totalAmount)}</span>
+          <strong>{formatMoney(transaction.totalAmount, currency, rates)}</strong>
         </div>
       ))}
     </div>

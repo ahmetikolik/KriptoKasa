@@ -1,51 +1,22 @@
 services:
-  postgres:
-    image: postgres:16
-    container_name: cryptopal-postgres
-    restart: unless-stopped
-    environment:
-      POSTGRES_DB: cryptopal
-      POSTGRES_USER: cryptopal
-      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD}
-    volumes:
-      - postgres_data:/var/lib/postgresql/data
-    healthcheck:
-      test: ["CMD-SHELL", "pg_isready -U cryptopal -d cryptopal"]
-      interval: 10s
-      timeout: 5s
-      retries: 5
-
-  redis:
-    image: redis:7
-    container_name: cryptopal-redis
-    restart: unless-stopped
-    volumes:
-      - redis_data:/data
-    healthcheck:
-      test: ["CMD", "redis-cli", "ping"]
-      interval: 10s
-      timeout: 5s
-      retries: 5
-
   backend:
     build:
       context: ./Kasa
     container_name: cryptopal-backend
     restart: unless-stopped
     environment:
-      SPRING_DATASOURCE_URL: jdbc:postgresql://postgres:5432/cryptopal
+      SPRING_DATASOURCE_URL: jdbc:postgresql://cryptopal-postgres:5432/cryptopal
       SPRING_DATASOURCE_USERNAME: cryptopal
       SPRING_DATASOURCE_PASSWORD: ${POSTGRES_PASSWORD}
-      SPRING_DATA_REDIS_HOST: redis
+
+      SPRING_DATA_REDIS_HOST: cryptopal-redis
       SPRING_DATA_REDIS_PORT: 6379
+
       CRYPTOPAL_SESSION_TTL_MINUTES: 1440
       GEMINI_API_KEY: ${GEMINI_API_KEY}
       GEMINI_MODEL: ${GEMINI_MODEL:-gemini-flash-lite-latest}
-    depends_on:
-      postgres:
-        condition: service_healthy
-      redis:
-        condition: service_healthy
+    networks:
+      - cryptopal-network
 
   frontend:
     build:
@@ -58,7 +29,9 @@ services:
       - "80:80"
     depends_on:
       - backend
+    networks:
+      - cryptopal-network
 
-volumes:
-  postgres_data:
-  redis_data:
+networks:
+  cryptopal-network:
+    external: true

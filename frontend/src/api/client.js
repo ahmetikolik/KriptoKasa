@@ -49,6 +49,44 @@ export function getPortfolio(token) {
   })
 }
 
+export function getAccount(token) {
+  return request('/api/account/me', {
+    headers: {
+      Authorization: `Bearer ${token}`,
+    },
+  })
+}
+
+export function updateAccount(token, payload) {
+  return request('/api/account/me', {
+    method: 'PUT',
+    headers: {
+      Authorization: `Bearer ${token}`,
+    },
+    body: JSON.stringify(payload),
+  })
+}
+
+export function changePassword(token, payload) {
+  return request('/api/account/password', {
+    method: 'PUT',
+    headers: {
+      Authorization: `Bearer ${token}`,
+    },
+    body: JSON.stringify(payload),
+  })
+}
+
+export function deleteAccount(token, payload) {
+  return request('/api/account/me', {
+    method: 'DELETE',
+    headers: {
+      Authorization: `Bearer ${token}`,
+    },
+    body: JSON.stringify(payload),
+  })
+}
+
 export function executeTrade(token, payload) {
   return request('/api/trades', {
     method: 'POST',

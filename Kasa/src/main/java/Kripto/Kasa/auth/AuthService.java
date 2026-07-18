@@ -82,6 +82,11 @@ public class AuthService {
         return Long.valueOf(value);
     }
 
+    public void revokeSession(String authorizationHeader) {
+        String token = extractToken(authorizationHeader);
+        redisTemplate.delete(SESSION_PREFIX + token);
+    }
+
     @Transactional(readOnly = true)
     public AppUser requireUser(Long userId) {
         return userRepository.findById(userId)

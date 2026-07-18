@@ -1,0 +1,3 @@
+.env
+Kasa/backend-dev-*.log
+Kasa/backend-dev-*.err.log
