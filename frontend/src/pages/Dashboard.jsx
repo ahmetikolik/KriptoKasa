@@ -1,8 +1,10 @@
 import React from 'react';
 import { useLanguage } from '../context/LanguageContext';
+import { useCurrency } from '../context/CurrencyContext';
 
 export default function Dashboard({ portfolio, prices = [], setActiveView }) {
-  const { t } = useLanguage();
+  const { t, lang } = useLanguage();
+  const { currency, money } = useCurrency();
   if (!portfolio) {
     return (
       <main className="flex-grow pt-32 pb-xl px-margin-mobile md:px-margin-desktop max-w-max-width mx-auto w-full flex items-center justify-center">
@@ -21,6 +23,7 @@ export default function Dashboard({ portfolio, prices = [], setActiveView }) {
     : (holdings.find(h => h.symbol === 'USDT')?.quantity || 0);
 
   const cryptoHoldings = holdings.filter(h => h.symbol !== 'USDT');
+  const fiatBalanceLabel = t('portfolio.fiatBalance').replace('USD', currency === 'TRY' ? 'TL' : 'USD');
 
   // Helper to calculate PnL per holding
   const getAssetPnL = (symbol, quantity) => {
@@ -56,9 +59,9 @@ export default function Dashboard({ portfolio, prices = [], setActiveView }) {
         {/* Left Column: Balances */}
         <div className="col-span-1 glass-panel rounded-xl p-lg flex flex-col gap-lg h-fit">
           <div>
-            <h2 className="font-headline-md text-on-surface-variant mb-sm uppercase tracking-wider">{t('portfolio.fiatBalance')}</h2>
+            <h2 className="font-headline-md text-on-surface-variant mb-sm uppercase tracking-wider">{fiatBalanceLabel}</h2>
             <div className="font-display-lg text-4xl text-primary-container glow-sm">
-              ${Number(usdtBalance).toLocaleString('en-US', {minimumFractionDigits: 2})}
+              {money(usdtBalance)}
             </div>
           </div>
           
@@ -79,7 +82,7 @@ export default function Dashboard({ portfolio, prices = [], setActiveView }) {
                       <div className="font-tech-mono text-secondary">{Number(h.quantity).toLocaleString()}</div>
                       {pnl && (
                         <div className={`text-xs font-bold mt-1 ${pnl.profit >= 0 ? 'text-buy' : 'text-sell'}`}>
-                          {pnl.profit >= 0 ? '+' : ''}{pnl.profit.toLocaleString('en-US', { style: 'currency', currency: 'USD' })} 
+                          {pnl.profit >= 0 ? '+' : ''}{money(pnl.profit)} 
                           {' '}({pnl.profit >= 0 ? '+' : ''}{pnl.profitPercent.toFixed(2)}%)
                         </div>
                       )}
@@ -109,7 +112,7 @@ export default function Dashboard({ portfolio, prices = [], setActiveView }) {
             <div className="flex flex-col gap-xs">
               {transactions.length > 0 ? transactions.map((t) => (
                 <div key={t.id} className="grid grid-cols-4 py-sm items-center border-b border-white/5 hover:bg-white/5 transition-colors text-sm">
-                  <div className="text-on-surface-variant">{new Date(t.createdAt).toLocaleDateString('tr-TR')}</div>
+                  <div className="text-on-surface-variant">{new Date(t.createdAt).toLocaleDateString(lang === 'tr' ? 'tr-TR' : 'en-US')}</div>
                   <div>
                     <span className={`px-2 py-1 rounded text-xs font-bold ${t.type === 'BUY' ? 'bg-secondary-container/20 text-buy' : 'bg-error/20 text-sell'}`}>
                       {t.type}

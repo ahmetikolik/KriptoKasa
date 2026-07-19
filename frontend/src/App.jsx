@@ -13,6 +13,7 @@ import AiChat from './components/AI/AiChat'
 import Toast from './components/UI/Toast'
 import { ThemeProvider } from './context/ThemeContext'
 import { LanguageProvider } from './context/LanguageContext'
+import { CurrencyProvider } from './context/CurrencyContext'
 
 import { emptyAuth } from './data/constants'
 
@@ -194,6 +195,7 @@ export default function App() {
   return (
     <ThemeProvider>
       <LanguageProvider>
+        <CurrencyProvider>
         <div className="flex flex-col min-h-screen relative overflow-x-hidden bg-background text-on-background transition-colors duration-300">
           <Navbar 
             activeView={activeView}
@@ -276,6 +278,7 @@ export default function App() {
             </div>
           )}
         </div>
+        </CurrencyProvider>
       </LanguageProvider>
     </ThemeProvider>
   )

@@ -1,9 +1,11 @@
 import React, { useState, useMemo, useEffect, useRef } from 'react';
 import { createChart, CandlestickSeries, LineSeries, HistogramSeries } from 'lightweight-charts';
 import { useLanguage } from '../context/LanguageContext';
+import { useCurrency } from '../context/CurrencyContext';
 
 export default function TradeTerminal({ prices, portfolio, priceHistory, selectedSymbol, onSelectAsset, onTradeSubmit, loading }) {
   const { t } = useLanguage();
+  const { currency, money } = useCurrency();
   const [tradeType, setTradeType] = useState('Market');
   const [quantity, setQuantity] = useState('');
   const [limitPrice, setLimitPrice] = useState('');
@@ -13,9 +15,11 @@ export default function TradeTerminal({ prices, portfolio, priceHistory, selecte
   const [showVolume, setShowVolume] = useState(false);
   const [maPeriod, setMaPeriod] = useState(20);
   const [isFullscreen, setIsFullscreen] = useState(false);
+  const [assetMenuOpen, setAssetMenuOpen] = useState(false);
 
   const chartContainerRef = useRef(null);
   const chartWrapperRef = useRef(null);
+  const assetMenuRef = useRef(null);
   const chartRef = useRef(null);
   const seriesRef = useRef(null);
   const maSeriesRef = useRef(null);
@@ -307,21 +311,50 @@ export default function TradeTerminal({ prices, portfolio, priceHistory, selecte
     return () => document.removeEventListener('fullscreenchange', handleFullscreenChange);
   }, []);
 
+  useEffect(() => {
+    const handlePointerDown = (event) => {
+      if (!assetMenuRef.current?.contains(event.target)) {
+        setAssetMenuOpen(false);
+      }
+    };
+
+    document.addEventListener('pointerdown', handlePointerDown);
+    return () => document.removeEventListener('pointerdown', handlePointerDown);
+  }, []);
+
   return (
-    <main className="flex-grow pt-[80px] px-sm md:px-margin-desktop pb-xl max-w-max-width mx-auto w-full grid grid-cols-1 xl:grid-cols-[1fr_330px] gap-sm md:gap-md h-auto xl:h-[calc(100vh-80px)]">
+    <main className="flex-grow pt-[80px] px-sm md:px-margin-desktop pb-xl max-w-max-width mx-auto w-full grid grid-cols-1 xl:grid-cols-[1fr_330px] gap-sm md:gap-md min-h-[calc(100vh-80px)]">
       {/* Center/Left Column: Ticker, Chart, Order Book */}
-      <div className="flex flex-col gap-sm md:gap-md h-full overflow-hidden">
+      <div className="flex flex-col gap-sm md:gap-md min-h-0">
         {/* Asset Ticker Panel */}
         <div className="glass-panel rounded-lg p-sm md:p-md flex flex-wrap items-center justify-between gap-md shrink-0">
           <div className="flex items-center gap-md">
-            <div className="flex items-center gap-xs cursor-pointer hover:text-primary-container transition-colors relative group">
-              <span className="font-headline-md text-secondary">{asset?.symbol || 'BTC'}/USDT</span>
-              <span className="material-symbols-outlined text-sm">expand_more</span>
+            <div ref={assetMenuRef} className="relative">
+              <button
+                type="button"
+                onClick={() => setAssetMenuOpen((open) => !open)}
+                className="flex items-center gap-xs hover:text-primary-container transition-colors"
+                aria-expanded={assetMenuOpen}
+                aria-haspopup="listbox"
+              >
+                <span className="font-headline-md text-secondary">{asset?.symbol || 'BTC'}/USDT</span>
+                <span className="material-symbols-outlined text-sm">expand_more</span>
+              </button>
               
               {/* Dropdown for asset switching */}
-              <div className="absolute top-full left-0 mt-2 w-48 glass-panel rounded-lg shadow-xl hidden group-hover:flex flex-col z-50">
+              <div className={`absolute top-full left-0 mt-2 w-48 glass-panel rounded-lg shadow-xl flex-col z-50 overflow-hidden ${assetMenuOpen ? 'flex' : 'hidden'}`} role="listbox">
                 {prices?.slice(0, 10).map(p => (
-                  <button key={p.symbol} onClick={() => onSelectAsset(p.symbol)} className="px-4 py-2 text-left hover:bg-white/5 text-sm">
+                  <button
+                    key={p.symbol}
+                    type="button"
+                    onClick={() => {
+                      onSelectAsset(p.symbol);
+                      setAssetMenuOpen(false);
+                    }}
+                    className={`px-4 py-2 text-left hover:bg-white/5 text-sm ${selectedSymbol === p.symbol ? 'text-primary-container bg-white/5' : 'text-on-surface'}`}
+                    role="option"
+                    aria-selected={selectedSymbol === p.symbol}
+                  >
                     {p.symbol}/USDT
                   </button>
                 ))}
@@ -329,8 +362,8 @@ export default function TradeTerminal({ prices, portfolio, priceHistory, selecte
             </div>
             <div className="h-6 w-px bg-white/10 mx-sm hidden sm:block"></div>
             <div className="flex flex-col">
-              <span className={`font-tech-mono text-lg ${isUp ? 'text-buy' : 'text-sell'}`}>{Number(btcPrice).toLocaleString('en-US', {minimumFractionDigits: 2})}</span>
-              <span className="font-label-caps text-on-surface-variant uppercase">${Number(btcPrice).toLocaleString('en-US', {minimumFractionDigits: 2})}</span>
+              <span className={`font-tech-mono text-lg ${isUp ? 'text-buy' : 'text-sell'}`}>{money(btcPrice)}</span>
+              <span className="font-label-caps text-on-surface-variant uppercase">{currency}</span>
             </div>
           </div>
           <div className="hidden sm:flex items-center gap-xl text-sm">
@@ -340,17 +373,17 @@ export default function TradeTerminal({ prices, portfolio, priceHistory, selecte
             </div>
             <div className="flex flex-col">
               <span className="font-label-caps text-on-surface-variant uppercase">24h High</span>
-              <span className="font-tech-mono text-secondary">{Number(btcPrice * 1.05).toLocaleString('en-US', {maximumFractionDigits:0})}</span>
+              <span className="font-tech-mono text-secondary">{money(btcPrice * 1.05)}</span>
             </div>
             <div className="flex flex-col">
               <span className="font-label-caps text-on-surface-variant uppercase">24h Low</span>
-              <span className="font-tech-mono text-secondary">{Number(btcPrice * 0.95).toLocaleString('en-US', {maximumFractionDigits:0})}</span>
+              <span className="font-tech-mono text-secondary">{money(btcPrice * 0.95)}</span>
             </div>
           </div>
         </div>
 
         {/* Advanced Chart Area */}
-        <div ref={chartWrapperRef} className={`glass-panel rounded-lg p-md flex flex-col relative overflow-hidden ${isFullscreen ? 'w-full h-full' : 'flex-grow min-h-[300px]'}`}>
+        <div ref={chartWrapperRef} className={`glass-panel rounded-lg p-md flex flex-col relative overflow-hidden ${isFullscreen ? 'w-full h-full' : 'h-[360px] md:h-[430px] xl:h-[390px]'}`}>
           <div className="flex justify-between items-center mb-md shrink-0 z-10">
             <div className="flex gap-sm items-center">
               {['15m', '1H', '4H', '1D'].map((tf) => (
@@ -404,7 +437,7 @@ export default function TradeTerminal({ prices, portfolio, priceHistory, selecte
         </div>
 
         {/* Bottom Row: Markets, Order Book & Recent Trades */}
-        <div className="grid grid-cols-1 lg:grid-cols-3 gap-sm md:gap-md h-[300px] shrink-0">
+        <div className="grid grid-cols-1 lg:grid-cols-3 gap-sm md:gap-md auto-rows-[360px] xl:auto-rows-[390px]">
           {/* Markets Panel */}
           <div className="glass-panel rounded-lg flex flex-col overflow-hidden">
             <div className="p-sm md:p-md border-b border-white/5 shrink-0 flex justify-between items-center">
@@ -425,7 +458,7 @@ export default function TradeTerminal({ prices, portfolio, priceHistory, selecte
                       <span className="text-xs text-on-surface-variant">USDT</span>
                     </div>
                     <div className="flex flex-col items-end">
-                      <span className={`font-tech-mono text-sm ${isPriceUp ? 'text-buy' : 'text-sell'}`}>{Number(p.price).toLocaleString('en-US', {minimumFractionDigits: 2})}</span>
+                      <span className={`font-tech-mono text-sm ${isPriceUp ? 'text-buy' : 'text-sell'}`}>{money(p.price)}</span>
                       <span className={`text-xs ${isPriceUp ? 'text-buy' : 'text-sell'}`}>{isPriceUp ? '+' : ''}{p.changePercent}%</span>
                     </div>
                   </div>
@@ -440,26 +473,26 @@ export default function TradeTerminal({ prices, portfolio, priceHistory, selecte
             </div>
             <div className="flex-grow flex flex-col p-sm overflow-hidden font-tech-mono text-[10px] sm:text-[11px] leading-tight">
               <div className="flex justify-between text-on-surface-variant mb-2 px-1">
-                <span>{t('trade.orderBook.price')}(USDT)</span>
+                <span>{t('trade.orderBook.price')}({currency})</span>
                 <span>{t('trade.orderBook.amount')}</span>
               </div>
               <div className="flex-1 flex flex-col justify-end gap-1 overflow-hidden">
                 {orderBook.asks.map((ask, i) => (
                   <div key={`ask-${i}`} className="flex justify-between px-1 hover:bg-white/5 cursor-pointer relative">
                     <div className="absolute top-0 right-0 bottom-0 bg-sell/10" style={{width: `${Math.min(ask.amount*30, 100)}%`}}></div>
-                    <span className="text-sell relative z-10">{Number(ask.price).toLocaleString('en-US', {minimumFractionDigits:2, maximumFractionDigits:2})}</span>
+                    <span className="text-sell relative z-10">{money(ask.price)}</span>
                     <span className="text-on-surface relative z-10">{ask.amount.toFixed(4)}</span>
                   </div>
                 ))}
               </div>
               <div className="py-2 text-center text-secondary font-bold border-y border-white/5 my-1">
-                {Number(btcPrice).toLocaleString('en-US', {minimumFractionDigits:2})}
+                {money(btcPrice)}
               </div>
               <div className="flex-1 flex flex-col justify-start gap-1 overflow-hidden">
                 {orderBook.bids.map((bid, i) => (
                   <div key={`bid-${i}`} className="flex justify-between px-1 hover:bg-white/5 cursor-pointer relative">
                     <div className="absolute top-0 right-0 bottom-0 bg-buy/10" style={{width: `${Math.min(bid.amount*30, 100)}%`}}></div>
-                    <span className="text-buy relative z-10">{Number(bid.price).toLocaleString('en-US', {minimumFractionDigits:2, maximumFractionDigits:2})}</span>
+                    <span className="text-buy relative z-10">{money(bid.price)}</span>
                     <span className="text-on-surface relative z-10">{bid.amount.toFixed(4)}</span>
                   </div>
                 ))}
@@ -480,7 +513,7 @@ export default function TradeTerminal({ prices, portfolio, priceHistory, selecte
               <div className="flex-1 flex flex-col gap-1 overflow-hidden">
                 {marketTrades.map((trade, i) => (
                   <div key={`trade-${i}`} className="flex justify-between px-1 hover:bg-white/5 cursor-pointer">
-                    <span className={trade.isUp ? 'text-buy' : 'text-sell'}>{Number(trade.price).toLocaleString('en-US', {minimumFractionDigits:2, maximumFractionDigits:2})}</span>
+                    <span className={trade.isUp ? 'text-buy' : 'text-sell'}>{money(trade.price)}</span>
                     <span className="text-on-surface">{trade.amount.toFixed(4)}</span>
                     <span className="text-on-surface-variant">{trade.time.toLocaleTimeString([], {hour12: false, hour: '2-digit', minute:'2-digit', second:'2-digit'})}</span>
                   </div>
@@ -492,7 +525,7 @@ export default function TradeTerminal({ prices, portfolio, priceHistory, selecte
       </div>
 
       {/* Right Column: Trading Terminal */}
-      <aside className="glass-panel rounded-lg flex flex-col h-[500px] xl:h-full overflow-hidden shrink-0">
+      <aside className="glass-panel rounded-lg flex flex-col h-[500px] xl:h-[calc(100vh-112px)] xl:min-h-[720px] overflow-hidden shrink-0 xl:sticky xl:top-[96px]">
         <div className="flex border-b border-white/5 shrink-0">
           {['Limit', 'Market', 'Stop-Limit'].map((tab) => (
             <button key={tab} 

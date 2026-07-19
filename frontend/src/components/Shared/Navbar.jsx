@@ -1,9 +1,11 @@
 import { useTheme } from '../../context/ThemeContext';
 import { useLanguage } from '../../context/LanguageContext';
+import { useCurrency } from '../../context/CurrencyContext';
 
 export default function Navbar({ activeView, setActiveView, onAuthClick, onLogout, session }) {
   const { theme, toggleTheme } = useTheme();
   const { lang, toggleLanguage, t } = useLanguage();
+  const { currency, toggleCurrency } = useCurrency();
 
   return (
     <header className="fixed top-0 w-full z-50 bg-surface/75 backdrop-blur-md border-b border-white/10 shadow-[0px_0px_15px_rgba(0,209,255,0.2)]">
@@ -23,6 +25,9 @@ export default function Navbar({ activeView, setActiveView, onAuthClick, onLogou
           {/* Theme & Language Toggles */}
           <button onClick={toggleLanguage} className="flex items-center justify-center w-8 h-8 rounded-full border border-white/10 bg-surface-container-high text-on-surface-variant hover:text-primary-container hover:border-primary-container transition-all">
             <span className="font-label-caps text-[10px] tracking-wider uppercase font-bold">{lang}</span>
+          </button>
+          <button onClick={toggleCurrency} className="flex items-center justify-center h-8 min-w-12 px-3 rounded-full border border-white/10 bg-surface-container-high text-on-surface-variant hover:text-primary-container hover:border-primary-container transition-all" title="TL / USD">
+            <span className="font-label-caps text-[10px] tracking-wider uppercase font-bold">{currency === 'USD' ? 'USD' : 'TL'}</span>
           </button>
           <button onClick={toggleTheme} className="flex items-center justify-center w-8 h-8 rounded-full border border-white/10 bg-surface-container-high text-on-surface-variant hover:text-primary-container hover:border-primary-container transition-all">
             <span className="material-symbols-outlined text-[18px]">

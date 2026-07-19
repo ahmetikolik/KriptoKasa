@@ -1,9 +1,11 @@
 import React from 'react';
 import MarketTicker from '../components/Shared/MarketTicker';
 import { useLanguage } from '../context/LanguageContext';
+import { useCurrency } from '../context/CurrencyContext';
 
 export default function Home({ prices, setActiveView, onSelectAsset }) {
   const { t } = useLanguage();
+  const { money } = useCurrency();
 
   // Fallbacks if no prices yet
   const fallbackPrices = [
@@ -74,7 +76,7 @@ export default function Home({ prices, setActiveView, onSelectAsset }) {
                      <span className="font-body-bold">{coin.symbol}</span>
                    </div>
                    <div className="text-right">
-                     <div className="text-sm">${Number(coin.price).toLocaleString('en-US', {minimumFractionDigits: 2})}</div>
+                     <div className="text-sm">{money(coin.price)}</div>
                      <div className="text-xs text-secondary-fixed">+{getChange(coin).toFixed(2)}%</div>
                    </div>
                 </div>
@@ -93,7 +95,7 @@ export default function Home({ prices, setActiveView, onSelectAsset }) {
                      <span className="font-body-bold">{coin.symbol}</span>
                    </div>
                    <div className="text-right">
-                     <div className="text-sm">${Number(coin.price).toLocaleString('en-US', {minimumFractionDigits: 2})}</div>
+                     <div className="text-sm">{money(coin.price)}</div>
                      <div className="text-xs text-error">{getChange(coin).toFixed(2)}%</div>
                    </div>
                 </div>
@@ -112,7 +114,7 @@ export default function Home({ prices, setActiveView, onSelectAsset }) {
                      <span className="font-body-bold">{coin.symbol}</span>
                    </div>
                    <div className="text-right">
-                     <div className="text-sm">${Number(coin.price).toLocaleString('en-US', {minimumFractionDigits: 2})}</div>
+                     <div className="text-sm">{money(coin.price)}</div>
                      <div className={`text-xs ${getChange(coin) >= 0 ? 'text-secondary-fixed' : 'text-error'}`}>{getChange(coin) > 0 ? '+' : ''}{getChange(coin).toFixed(2)}%</div>
                    </div>
                 </div>
@@ -164,7 +166,7 @@ export default function Home({ prices, setActiveView, onSelectAsset }) {
 
               <div className="mt-auto">
                 <div className="text-on-surface font-tech-mono text-lg mb-1">
-                  ${Number(asset.price || 0).toLocaleString('en-US', {minimumFractionDigits: 2, maximumFractionDigits: 4})}
+                  {money(asset.price || 0)}
                 </div>
                 <div className={`font-tech-mono text-md ${asset.changePercent >= 0 ? 'text-secondary-fixed drop-shadow-[0_0_8px_rgba(162,255,0,0.5)]' : 'text-[#FF5C00] drop-shadow-[0_0_8px_rgba(255,92,0,0.5)]'}`}>
                   {asset.changePercent >= 0 ? '+' : ''}{Number(asset.changePercent).toFixed(2)}%

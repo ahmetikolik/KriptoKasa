@@ -1,4 +1,8 @@
+import { useCurrency } from '../../context/CurrencyContext';
+
 export default function MarketTicker({ prices }) {
+  const { money } = useCurrency();
+
   // Use prices or fallback data
   const displayPrices = prices && prices.length > 0 ? prices : [
     { symbol: 'BTC', price: '64230.50', change24h: 2.4 },
@@ -15,7 +19,7 @@ export default function MarketTicker({ prices }) {
           {displayPrices.map((asset, i) => (
             <span key={i} className="flex gap-2 items-center">
               <span>{asset.symbol}</span>
-              <span className="text-primary-container">${Number(asset.price).toLocaleString('en-US', {minimumFractionDigits: 2})}</span>
+              <span className="text-primary-container">{money(asset.price)}</span>
               <span className={asset.change24h >= 0 ? 'text-secondary-fixed' : 'text-[#FF5C00]'}>
                 {asset.change24h >= 0 ? '+' : ''}{asset.change24h}%
               </span>
@@ -26,7 +30,7 @@ export default function MarketTicker({ prices }) {
           {displayPrices.map((asset, i) => (
             <span key={`dup-${i}`} className="flex gap-2 items-center">
               <span>{asset.symbol}</span>
-              <span className="text-primary-container">${Number(asset.price).toLocaleString('en-US', {minimumFractionDigits: 2})}</span>
+              <span className="text-primary-container">{money(asset.price)}</span>
               <span className={asset.change24h >= 0 ? 'text-secondary-fixed' : 'text-[#FF5C00]'}>
                 {asset.change24h >= 0 ? '+' : ''}{asset.change24h}%
               </span>
