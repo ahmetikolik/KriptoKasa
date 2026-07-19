@@ -34,6 +34,7 @@ public class GlobalExceptionHandler {
 
     @ExceptionHandler(Exception.class)
     public ResponseEntity<ApiError> handleUnexpectedException(Exception exception, HttpServletRequest request) {
+        exception.printStackTrace();
         return ResponseEntity.internalServerError()
                 .body(toError(HttpStatus.INTERNAL_SERVER_ERROR, "Unexpected server error", request));
     }

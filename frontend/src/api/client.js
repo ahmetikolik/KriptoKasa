@@ -97,12 +97,10 @@ export function executeTrade(token, payload) {
   })
 }
 
-export function queryAi(token, payload) {
+export function queryAi(token, question) {
   return request('/api/ai/query', {
     method: 'POST',
-    headers: {
-      Authorization: `Bearer ${token}`,
-    },
-    body: JSON.stringify(payload),
+    headers: { Authorization: `Bearer ${token}` },
+    body: JSON.stringify({ question }),
   })
 }
