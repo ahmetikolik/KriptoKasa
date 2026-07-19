@@ -1,9 +1,10 @@
 import React from 'react';
 import MarketTicker from '../components/Shared/MarketTicker';
+import AiSuggestionCard from '../components/AI/AiSuggestionCard';
 import { useLanguage } from '../context/LanguageContext';
 import { useCurrency } from '../context/CurrencyContext';
 
-export default function Home({ prices, setActiveView, onSelectAsset }) {
+export default function Home({ prices, setActiveView, onSelectAsset, session, onAuthClick }) {
   const { t } = useLanguage();
   const { money } = useCurrency();
 
@@ -123,6 +124,14 @@ export default function Home({ prices, setActiveView, onSelectAsset }) {
           </div>
         </div>
       </section>
+
+      <AiSuggestionCard
+        session={session}
+        prices={safePrices}
+        variant="market"
+        className="mb-32"
+        onAuthClick={onAuthClick}
+      />
 
 
       {/* Main Market Flow (Moved to bottom) */}

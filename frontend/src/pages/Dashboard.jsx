@@ -1,17 +1,19 @@
 import React from 'react';
+import AiSuggestionCard from '../components/AI/AiSuggestionCard';
 import { useLanguage } from '../context/LanguageContext';
 import { useCurrency } from '../context/CurrencyContext';
 
-export default function Dashboard({ portfolio, prices = [], setActiveView }) {
+export default function Dashboard({ portfolio, prices = [], setActiveView, onSelectAsset, session, onAuthClick }) {
   const { t, lang } = useLanguage();
   const { currency, money } = useCurrency();
   if (!portfolio) {
     return (
-      <main className="flex-grow pt-32 pb-xl px-margin-mobile md:px-margin-desktop max-w-max-width mx-auto w-full flex items-center justify-center">
+      <main className="flex-grow pt-32 pb-xl px-margin-mobile md:px-margin-desktop max-w-max-width mx-auto w-full grid grid-cols-1 lg:grid-cols-2 gap-xl items-start">
         <div className="glass-panel p-xl rounded-xl text-center">
           <p className="text-on-surface-variant font-body-base">Lütfen cüzdan bilgilerinizi görmek için giriş yapın.</p>
           <button onClick={() => window.location.reload()} className="mt-md bg-primary-container text-on-primary-container px-lg py-sm rounded-DEFAULT font-label-caps uppercase hover:glow-bloom">Giriş Yap</button>
         </div>
+        <AiSuggestionCard session={session} prices={prices} variant="portfolio" onAuthClick={onAuthClick} />
       </main>
     );
   }
@@ -24,6 +26,11 @@ export default function Dashboard({ portfolio, prices = [], setActiveView }) {
 
   const cryptoHoldings = holdings.filter(h => h.symbol !== 'USDT');
   const fiatBalanceLabel = t('portfolio.fiatBalance').replace('USD', currency === 'TRY' ? 'TL' : 'USD');
+
+  const openTrade = (symbol) => {
+    onSelectAsset(symbol);
+    setActiveView('trade');
+  };
 
   // Helper to calculate PnL per holding
   const getAssetPnL = (symbol, quantity) => {
@@ -71,21 +78,39 @@ export default function Dashboard({ portfolio, prices = [], setActiveView }) {
               {cryptoHoldings.map(h => {
                 const pnl = getAssetPnL(h.symbol, h.quantity);
                 return (
-                  <div key={h.symbol} className="flex justify-between items-center p-sm rounded-lg bg-surface-container-low border border-white/5">
-                    <div className="flex items-center gap-sm">
-                      <div className="w-8 h-8 rounded-full bg-primary-container/20 flex items-center justify-center text-primary-container">
-                        <span className="font-tech-mono text-xs">{h.symbol[0]}</span>
-                      </div>
-                      <span className="font-body-bold text-on-surface">{h.symbol}</span>
-                    </div>
-                    <div className="text-right">
-                      <div className="font-tech-mono text-secondary">{Number(h.quantity).toLocaleString()}</div>
-                      {pnl && (
-                        <div className={`text-xs font-bold mt-1 ${pnl.profit >= 0 ? 'text-buy' : 'text-sell'}`}>
-                          {pnl.profit >= 0 ? '+' : ''}{money(pnl.profit)} 
-                          {' '}({pnl.profit >= 0 ? '+' : ''}{pnl.profitPercent.toFixed(2)}%)
+                  <div key={h.symbol} className="flex flex-col gap-sm p-sm rounded-lg bg-surface-container-low border border-white/5">
+                    <div className="flex justify-between items-center gap-sm">
+                      <div className="flex items-center gap-sm min-w-0">
+                        <div className="w-8 h-8 rounded-full bg-primary-container/20 flex items-center justify-center text-primary-container shrink-0">
+                          <span className="font-tech-mono text-xs">{h.symbol[0]}</span>
                         </div>
-                      )}
+                        <span className="font-body-bold text-on-surface truncate">{h.symbol}</span>
+                      </div>
+                      <div className="text-right min-w-0">
+                        <div className="font-tech-mono text-secondary">{Number(h.quantity).toLocaleString()}</div>
+                        {pnl && (
+                          <div className={`text-xs font-bold mt-1 ${pnl.profit >= 0 ? 'text-buy' : 'text-sell'}`}>
+                            {pnl.profit >= 0 ? '+' : ''}{money(pnl.profit)}
+                            {' '}({pnl.profit >= 0 ? '+' : ''}{pnl.profitPercent.toFixed(2)}%)
+                          </div>
+                        )}
+                      </div>
+                    </div>
+                    <div className="grid grid-cols-2 gap-xs">
+                      <button
+                        type="button"
+                        onClick={() => openTrade(h.symbol)}
+                        className="btn-buy py-xs rounded font-label-caps text-xs uppercase tracking-wider hover:brightness-110 transition-all"
+                      >
+                        Al
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => openTrade(h.symbol)}
+                        className="btn-sell py-xs rounded font-label-caps text-xs uppercase tracking-wider hover:brightness-110 transition-all"
+                      >
+                        Sat
+                      </button>
                     </div>
                   </div>
                 )
@@ -95,6 +120,13 @@ export default function Dashboard({ portfolio, prices = [], setActiveView }) {
               )}
             </div>
           </div>
+
+          <AiSuggestionCard
+            session={session}
+            portfolio={portfolio}
+            prices={prices}
+            variant="portfolio"
+          />
         </div>
 
         {/* Right Column: Transaction History */}

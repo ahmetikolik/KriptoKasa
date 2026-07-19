@@ -214,6 +214,8 @@ export default function App() {
                 prices={prices} 
                 setActiveView={setActiveView}
                 onSelectAsset={setSelectedSymbol}
+                session={session}
+                onAuthClick={() => setAuthMode('login')}
               />
             )}
             
@@ -234,6 +236,9 @@ export default function App() {
                 portfolio={portfolio}
                 prices={prices}
                 setActiveView={setActiveView}
+                onSelectAsset={setSelectedSymbol}
+                session={session}
+                onAuthClick={() => setAuthMode('login')}
               />
             )}
 
