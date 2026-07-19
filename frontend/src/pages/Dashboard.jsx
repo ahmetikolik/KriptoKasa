@@ -1,7 +1,7 @@
 import React from 'react';
 import { useLanguage } from '../context/LanguageContext';
 
-export default function Dashboard({ portfolio, setActiveView }) {
+export default function Dashboard({ portfolio, prices = [], setActiveView }) {
   const { t } = useLanguage();
   if (!portfolio) {
     return (
@@ -19,6 +19,29 @@ export default function Dashboard({ portfolio, setActiveView }) {
   const usdtBalance = portfolio.fiatBalance !== undefined 
     ? portfolio.fiatBalance 
     : (holdings.find(h => h.symbol === 'USDT')?.quantity || 0);
+
+  const cryptoHoldings = holdings.filter(h => h.symbol !== 'USDT');
+
+  // Helper to calculate PnL per holding
+  const getAssetPnL = (symbol, quantity) => {
+    const currentPrice = prices.find(p => p.symbol === symbol)?.price;
+    if (!currentPrice) return null;
+    
+    // Find all BUY transactions for this symbol to estimate cost basis
+    const buys = transactions.filter(t => t.symbol === symbol && t.type === 'BUY');
+    if (buys.length === 0) return null; // No buy history in recent transactions
+
+    const totalCost = buys.reduce((sum, t) => sum + (t.executionPrice * t.quantity), 0);
+    const totalBuyQuantity = buys.reduce((sum, t) => sum + t.quantity, 0);
+    const avgBuyPrice = totalCost / totalBuyQuantity;
+
+    const currentValue = quantity * currentPrice;
+    const costBasis = quantity * avgBuyPrice;
+    const profit = currentValue - costBasis;
+    const profitPercent = (profit / costBasis) * 100;
+
+    return { profit, profitPercent, currentValue };
+  };
 
   return (
     <main className="flex-grow pt-32 pb-xl px-margin-mobile md:px-margin-desktop max-w-max-width mx-auto w-full flex flex-col gap-xl">
@@ -42,20 +65,29 @@ export default function Dashboard({ portfolio, setActiveView }) {
           <div className="border-t border-white/10 pt-md">
             <h3 className="font-headline-md text-on-surface mb-md">{t('portfolio.holdings')}</h3>
             <div className="flex flex-col gap-sm">
-              {holdings.filter(h => h.symbol !== 'USDT').map(h => (
-                <div key={h.symbol} className="flex justify-between items-center p-sm rounded-lg bg-surface-container-low border border-white/5">
-                  <div className="flex items-center gap-sm">
-                    <div className="w-8 h-8 rounded-full bg-primary-container/20 flex items-center justify-center text-primary-container">
-                      <span className="font-tech-mono text-xs">{h.symbol[0]}</span>
+              {cryptoHoldings.map(h => {
+                const pnl = getAssetPnL(h.symbol, h.quantity);
+                return (
+                  <div key={h.symbol} className="flex justify-between items-center p-sm rounded-lg bg-surface-container-low border border-white/5">
+                    <div className="flex items-center gap-sm">
+                      <div className="w-8 h-8 rounded-full bg-primary-container/20 flex items-center justify-center text-primary-container">
+                        <span className="font-tech-mono text-xs">{h.symbol[0]}</span>
+                      </div>
+                      <span className="font-body-bold text-on-surface">{h.symbol}</span>
                     </div>
-                    <span className="font-body-bold text-on-surface">{h.symbol}</span>
+                    <div className="text-right">
+                      <div className="font-tech-mono text-secondary">{Number(h.quantity).toLocaleString()}</div>
+                      {pnl && (
+                        <div className={`text-xs font-bold mt-1 ${pnl.profit >= 0 ? 'text-buy' : 'text-sell'}`}>
+                          {pnl.profit >= 0 ? '+' : ''}{pnl.profit.toLocaleString('en-US', { style: 'currency', currency: 'USD' })} 
+                          {' '}({pnl.profit >= 0 ? '+' : ''}{pnl.profitPercent.toFixed(2)}%)
+                        </div>
+                      )}
+                    </div>
                   </div>
-                  <div className="text-right">
-                    <div className="font-tech-mono text-secondary">{Number(h.quantity).toLocaleString()}</div>
-                  </div>
-                </div>
-              ))}
-              {holdings.length <= 1 && (
+                )
+              })}
+              {cryptoHoldings.length === 0 && (
                 <div className="text-on-surface-variant text-sm py-sm">Henüz kripto varlığınız bulunmuyor.</div>
               )}
             </div>
@@ -77,7 +109,7 @@ export default function Dashboard({ portfolio, setActiveView }) {
             <div className="flex flex-col gap-xs">
               {transactions.length > 0 ? transactions.map((t) => (
                 <div key={t.id} className="grid grid-cols-4 py-sm items-center border-b border-white/5 hover:bg-white/5 transition-colors text-sm">
-                  <div className="text-on-surface-variant">{new Date(t.timestamp).toLocaleDateString('tr-TR')}</div>
+                  <div className="text-on-surface-variant">{new Date(t.createdAt).toLocaleDateString('tr-TR')}</div>
                   <div>
                     <span className={`px-2 py-1 rounded text-xs font-bold ${t.type === 'BUY' ? 'bg-secondary-container/20 text-buy' : 'bg-error/20 text-sell'}`}>
                       {t.type}

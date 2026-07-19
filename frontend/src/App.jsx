@@ -230,6 +230,7 @@ export default function App() {
             {activeView === 'dashboard' && (
               <Dashboard 
                 portfolio={portfolio}
+                prices={prices}
                 setActiveView={setActiveView}
               />
             )}
